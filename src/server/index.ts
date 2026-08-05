@@ -38,6 +38,29 @@ export class Chat extends Server<Env> {
 				messages: this.messages,
 			} satisfies Message),
 		);
+		
+		// Send presence update with current connection count
+		this.broadcastPresence();
+	}
+
+	onClose(connection: Connection) {
+		// Send presence update when someone leaves
+		this.broadcastPresence();
+	}
+
+	broadcastPresence() {
+		const connections = this.getConnections();
+		let count = 0;
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		for (const _ of connections) {
+			count++;
+		}
+		this.broadcast(
+			JSON.stringify({
+				type: "presence",
+				count,
+			} satisfies Message),
+		);
 	}
 
 	saveMessage(message: ChatMessage) {
