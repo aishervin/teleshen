@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+	<head>
+		<!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+		<meta charset="utf-8" />
+		<title>تلشن - چت ناشناس</title>
+		<meta name="description" content="" />
+		<meta name="author" content="" />
+
+		<!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+
+		<!-- FONT
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+
+		<!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+		<style>
+			:root {
+				--bg-color: #121212;
+				--chat-bg: #1e1e1e;
+				--input-bg: #2c2c2c;
+				--text-color: #ffffff;
+				--accent-color: #0088cc;
+				--error-color: #ff5252;
+				--font-family: 'Tahoma', 'Segoe UI', sans-serif;
+			}
+
+			* {
+				box-sizing: border-box;
+				margin: 0;
+				padding: 0;
+				outline: none;
+				-webkit-tap-highlight-color: transparent;
+			}
+
+			body {
+				font-family: var(--font-family);
+				background-color: var(--bg-color);
+				color: var(--text-color);
+				height: 100vh;
+				width: 100vw;
+				overflow: hidden;
+				display: flex;
+				flex-direction: column;
+			}
+
+			/* --- Login Screen --- */
+			#login-screen {
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				background: rgba(0, 0, 0, 0.95);
+				z-index: 1000;
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;
+				backdrop-filter: blur(5px);
+			}
+
+			.login-box {
+				background: var(--chat-bg);
+				padding: 2rem;
+				border-radius: 20px;
+				text-align: center;
+				width: 90%;
+				max-width: 400px;
+				box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+			}
+
+			.login-box h2 {
+				margin-bottom: 1.5rem;
+				color: var(--accent-color);
+			}
+
+			.login-input {
+				width: 100%;
+				padding: 15px;
+				border-radius: 12px;
+				border: 2px solid #333;
+				background: var(--input-bg);
+				color: white;
+				font-size: 1rem;
+				margin-bottom: 1rem;
+				text-align: center;
+				transition: border-color 0.3s;
+			}
+
+			.login-input:focus {
+				border-color: var(--accent-color);
+			}
+
+			.login-btn {
+				width: 100%;
+				padding: 15px;
+				border-radius: 12px;
+				border: none;
+				background: var(--accent-color);
+				color: white;
+				font-size: 1.1rem;
+				font-weight: bold;
+				cursor: pointer;
+				transition: transform 0.1s;
+			}
+
+			.login-btn:active {
+				transform: scale(0.98);
+			}
+
+			/* --- Chat Interface --- */
+			#chat-container {
+				display: none;
+				flex-direction: column;
+				height: 100%;
+				width: 100%;
+				max-width: 800px;
+				margin: 0 auto;
+				background: var(--chat-bg);
+				position: relative;
+			}
+
+			/* Header */
+			header {
+				padding: 15px;
+				background: rgba(30, 30, 30, 0.95);
+				border-bottom: 1px solid #333;
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				z-index: 10;
+				backdrop-filter: blur(5px);
+			}
+
+			.room-info {
+				font-size: 0.9rem;
+				color: #aaa;
+			}
+
+			.online-count {
+				background: #2ecc71;
+				color: #000;
+				padding: 4px 10px;
+				border-radius: 20px;
+				font-size: 0.8rem;
+				font-weight: bold;
+				display: flex;
+				align-items: center;
+				gap: 5px;
+			}
+
+			.online-dot {
+				width: 8px;
+				height: 8px;
+				background: #000;
+				border-radius: 50%;
+				animation: pulse 1.5s infinite;
+			}
+
+			@keyframes pulse {
+				0% { opacity: 1; }
+				50% { opacity: 0.5; }
+				100% { opacity: 1; }
+			}
+
+			/* Messages Area */
+			#messages-wrapper {
+				flex: 1;
+				overflow: hidden;
+				position: relative;
+				display: flex;
+				flex-direction: column-reverse;
+				padding: 20px;
+				
+				-webkit-mask-image: linear-gradient(
+					to bottom,
+					transparent 0%,
+					black 15%,
+					black 85%,
+					transparent 100%
+				);
+				mask-image: linear-gradient(
+					to bottom,
+					transparent 0%,
+					black 15%,
+					black 85%,
+					transparent 100%
+				);
+			}
+
+			.message-row {
+				width: 100%;
+				display: flex;
+				justify-content: flex-start;
+				margin-bottom: 8px;
+				animation: slideUp 0.3s ease-out;
+			}
+
+			@keyframes slideUp {
+				from { transform: translateY(20px); opacity: 0; }
+				to { transform: translateY(0); opacity: 1; }
+			}
+
+			.message-bubble {
+				max-width: 80%;
+				padding: 12px 18px;
+				border-radius: 20px;
+				font-size: 0.95rem;
+				line-height: 1.5;
+				word-wrap: break-word;
+				position: relative;
+				box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+			}
+
+			.message-name {
+				font-size: 0.75rem;
+				margin-bottom: 4px;
+				opacity: 0.8;
+				font-weight: bold;
+				display: block;
+			}
+
+			.message-text {
+				display: block;
+			}
+
+			.my-message {
+				justify-content: flex-end;
+			}
+			
+			.my-message .message-bubble {
+				background: var(--accent-color) !important;
+				color: white;
+				border-bottom-left-radius: 4px;
+			}
+
+			.other-message .message-bubble {
+				border-bottom-right-radius: 4px;
+			}
+
+			/* Input Area */
+			#input-area {
+				padding: 15px;
+				background: var(--chat-bg);
+				border-top: 1px solid #333;
+				display: flex;
+				gap: 10px;
+				z-index: 10;
+			}
+
+			#message-input {
+				flex: 1;
+				padding: 12px 15px;
+				border-radius: 25px;
+				border: 1px solid #444;
+				background: var(--input-bg);
+				color: white;
+				font-family: inherit;
+				font-size: 1rem;
+			}
+
+			#send-btn {
+				width: 50px;
+				height: 50px;
+				border-radius: 50%;
+				border: none;
+				background: var(--accent-color);
+				color: white;
+				font-size: 1.2rem;
+				cursor: pointer;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				transition: all 0.2s;
+			}
+
+			#send-btn:disabled {
+				background: #444;
+				cursor: not-allowed;
+				opacity: 0.7;
+			}
+
+			#timer-display {
+				position: absolute;
+				top: -30px;
+				left: 50%;
+				transform: translateX(-50%);
+				background: var(--error-color);
+				color: white;
+				padding: 4px 12px;
+				border-radius: 12px;
+				font-size: 0.8rem;
+				font-weight: bold;
+				opacity: 0;
+				transition: opacity 0.3s;
+				pointer-events: none;
+			}
+
+			.timer-active {
+				opacity: 1 !important;
+			}
+
+			/* Scrollbar hiding */
+			::-webkit-scrollbar {
+				width: 0px;
+				background: transparent;
+			}
+		</style>
+
+		<!-- Favicon
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+		<link rel="icon" type="image/ico" href="favicon.ico" />
+	</head>
+	<body>
+		<!-- Login Screen -->
+		<div id="login-screen">
+			<div class="login-box">
+				<h2>به تلشن خوش آمدید</h2>
+				<p style="margin-bottom: 20px; color: #ccc; font-size: 0.9rem;">برای شروع چت، یک نام انتخاب کنید</p>
+				<input type="text" id="username-input" class="login-input" placeholder="نام شما..." maxlength="15" autocomplete="off">
+				<button id="join-btn" class="login-btn">ورود به اتاق</button>
+			</div>
+		</div>
+
+		<!-- Chat Interface -->
+		<div id="chat-container">
+			<header>
+				<div class="room-info">اتاق عمومی</div>
+				<div class="online-count">
+					<div class="online-dot"></div>
+					<span id="online-users">0</span> آنلاین
+				</div>
+			</header>
+
+			<div id="messages-wrapper">
+				<!-- Messages will be injected here -->
+			</div>
+
+			<div id="input-area">
+				<div id="timer-display">۵ ثانیه صبر کنید...</div>
+				<input type="text" id="message-input" placeholder="پیام خود را بنویسید..." autocomplete="off">
+				<button id="send-btn">➤</button>
+			</div>
+		</div>
+
+		<script>
+			// --- Configuration ---
+			const WORKER_URL = "https://teleshen.shervin003254024.workers.dev"; 
+			
+			// --- State ---
+			let username = "";
+			let ws = null;
+			let lastMessageTime = 0;
+			const COOLDOWN_MS = 5000; // 5 seconds cooldown per user
+			let roomId = "global-room";
+
+			// --- DOM Elements ---
+			const loginScreen = document.getElementById('login-screen');
+			const chatContainer = document.getElementById('chat-container');
+			const usernameInput = document.getElementById('username-input');
+			const joinBtn = document.getElementById('join-btn');
+			const messagesWrapper = document.getElementById('messages-wrapper');
+			const messageInput = document.getElementById('message-input');
+			const sendBtn = document.getElementById('send-btn');
+			const onlineCountEl = document.getElementById('online-users');
+			const timerDisplay = document.getElementById('timer-display');
+
+			// --- Helper: Generate Color from Name ---
+			function stringToColor(str) {
+				let hash = 0;
+				for (let i = 0; i < str.length; i++) {
+					hash = str.charCodeAt(i) + ((hash << 5) - hash);
+				}
+				const hue = hash % 360;
+				return `hsl(${hue}, 70%, 40%)`;
+			}
+
+			// --- Login Logic ---
+			joinBtn.addEventListener('click', () => {
+				const name = usernameInput.value.trim();
+				if (name) {
+					username = name;
+					loginScreen.style.display = 'none';
+					chatContainer.style.display = 'flex';
+					connectWebSocket();
+				} else {
+					usernameInput.style.borderColor = 'var(--error-color)';
+					setTimeout(() => usernameInput.style.borderColor = '#333', 500);
+				}
+			});
+
+			usernameInput.addEventListener('keypress', (e) => {
+				if (e.key === 'Enter') joinBtn.click();
+			});
+
+			// --- WebSocket Logic ---
+			function connectWebSocket() {
+				const wsUrl = WORKER_URL.replace('https://', 'wss://') + `/${roomId}`;
+				
+				try {
+					ws = new WebSocket(wsUrl);
+
+					ws.onopen = () => {
+						console.log("Connected to Teleshen");
+					};
+
+					ws.onmessage = (event) => {
+						try {
+							const data = JSON.parse(event.data);
+							handleServerMessage(data);
+						} catch (e) {
+							console.error("Failed to parse message", e);
+						}
+					};
+
+					ws.onclose = () => {
+						console.log("Disconnected. Reconnecting in 3s...");
+						setTimeout(connectWebSocket, 3000);
+					};
+
+					ws.onerror = (err) => {
+						console.error("WS Error", err);
+					};
+
+				} catch (e) {
+					console.error("Connection failed", e);
+				}
+			}
+
+			function handleServerMessage(data) {
+				if (data.type === 'user-add' || data.type === 'state') {
+					if (data.count !== undefined) {
+						onlineCountEl.innerText = data.count;
+					} else if (data.users) {
+						onlineCountEl.innerText = Object.keys(data.users).length;
+					}
+				} else if (data.type === 'user-remove') {
+					 if (data.count !== undefined) {
+						onlineCountEl.innerText = data.count;
+					}
+				} else if (data.type === 'message' || data.text) {
+					const sender = data.user || data.username || "ناشناس";
+					const text = data.text || data.body || "";
+					renderMessage(sender, text, false);
+				}
+			}
+
+			function renderMessage(sender, text, isMe) {
+				const row = document.createElement('div');
+				row.className = `message-row ${isMe ? 'my-message' : 'other-message'}`;
+
+				const bubble = document.createElement('div');
+				bubble.className = 'message-bubble';
+				
+				if (!isMe) {
+					const color = stringToColor(sender);
+					bubble.style.backgroundColor = color;
+					bubble.style.color = '#fff';
+				}
+
+				const nameSpan = document.createElement('span');
+				nameSpan.className = 'message-name';
+				nameSpan.innerText = sender;
+				
+				const textSpan = document.createElement('span');
+				textSpan.className = 'message-text';
+				textSpan.innerText = text;
+
+				bubble.appendChild(nameSpan);
+				bubble.appendChild(textSpan);
+				row.appendChild(bubble);
+
+				messagesWrapper.appendChild(row);
+
+				const maxMessages = 20;
+				if (messagesWrapper.children.length > maxMessages) {
+					messagesWrapper.removeChild(messagesWrapper.firstChild);
+				}
+			}
+
+			// --- Send Message Logic ---
+			function sendMessage() {
+				const text = messageInput.value.trim();
+				if (!text) return;
+
+				const now = Date.now();
+				
+				// بررسی تاخیر ۵ ثانیه‌ای شخصی
+				if (now - lastMessageTime < COOLDOWN_MS) {
+					const remaining = Math.ceil((COOLDOWN_MS - (now - lastMessageTime)) / 1000);
+					showTimer(remaining);
+					return;
+				}
+
+				// ارسال به سرور
+				if (ws && ws.readyState === WebSocket.OPEN) {
+					const payload = {
+						type: 'message',
+						text: text,
+						user: username
+					};
+					ws.send(JSON.stringify(payload));
+					
+					renderMessage(username, text, true);
+					
+					lastMessageTime = now;
+					messageInput.value = '';
+					messageInput.focus();
+				} else {
+					alert("ارتباط با سرور قطع است.");
+				}
+			}
+
+			function showTimer(seconds) {
+				timerDisplay.innerText = `${seconds} ثانیه صبر کنید...`;
+				timerDisplay.classList.add('timer-active');
+				sendBtn.disabled = true;
+				
+				let counter = seconds;
+				const interval = setInterval(() => {
+					counter--;
+					if (counter <= 0) {
+						clearInterval(interval);
+						timerDisplay.classList.remove('timer-active');
+						sendBtn.disabled = false;
+					} else {
+						timerDisplay.innerText = `${counter} ثانیه صبر کنید...`;
+					}
+				}, 1000);
+			}
+
+			sendBtn.addEventListener('click', sendMessage);
+			messageInput.addEventListener('keypress', (e) => {
+				if (e.key === 'Enter') sendMessage();
+			});
+
+		</script>
+	</body>
+</html>
