@@ -11,12 +11,15 @@ import { ChatInfoDrawer } from './components/Modals/ChatInfoDrawer';
 import { CallOverlay } from './components/Modals/CallOverlay';
 import { StickerPickerModal } from './components/Modals/StickerPickerModal';
 import { NewChatModal } from './components/Modals/NewChatModal';
+import { AuthModal } from './components/Modals/AuthModal';
+import { UserDirectoryModal } from './components/Modals/UserDirectoryModal';
 import { Search, X } from 'lucide-react';
 
 export default function App() {
   const {
     connectionState,
     currentUser,
+    registeredUsers,
     chats,
     activeChat,
     activeChatId,
@@ -24,6 +27,8 @@ export default function App() {
     activeFolder,
     searchQuery,
     theme,
+    isAuthModalOpen,
+    isUserDirectoryOpen,
     isDrawerOpen,
     isSettingsOpen,
     isChatInfoOpen,
@@ -34,6 +39,8 @@ export default function App() {
     setSearchQuery,
     setActiveFolder,
     setTheme,
+    setIsAuthModalOpen,
+    setIsUserDirectoryOpen,
     setIsDrawerOpen,
     setIsSettingsOpen,
     setIsChatInfoOpen,
@@ -41,6 +48,9 @@ export default function App() {
     setIsNewChatModalOpen,
     setReplyMessage,
     selectChat,
+    login,
+    startDirectChat,
+    createGroupChat,
     sendMessage,
     sendVoiceNote,
     sendSticker,
@@ -52,7 +62,6 @@ export default function App() {
     startCall,
     endCall,
     updateProfile,
-    createChat,
   } = useTelegramStore();
 
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
@@ -189,12 +198,14 @@ export default function App() {
         theme={theme}
         onClose={() => setIsDrawerOpen(false)}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenUserDirectory={() => setIsUserDirectoryOpen(true)}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onSelectSavedMessages={() => {
           selectChat('saved-messages');
           setIsMobileChatOpen(true);
         }}
         onSelectSupport={() => {
-          selectChat('shervini-support');
+          startDirectChat('shervini');
           setIsMobileChatOpen(true);
         }}
         onToggleTheme={handleToggleTheme}
@@ -231,11 +242,36 @@ export default function App() {
         onToggleSpeaker={() => {}}
       />
 
-      {/* 7. New Chat Modal */}
+      {/* 7. New Chat / Group / Channel Modal */}
       <NewChatModal
         isOpen={isNewChatModalOpen}
+        availableUsers={registeredUsers}
+        currentUserId={currentUser.id}
         onClose={() => setIsNewChatModalOpen(false)}
-        onCreateChat={createChat}
+        onCreateChat={(title, type, memberIds, bio) => {
+          createGroupChat(title, type, memberIds, bio);
+          setIsMobileChatOpen(true);
+        }}
+      />
+
+      {/* 8. Active Users Directory Modal */}
+      <UserDirectoryModal
+        isOpen={isUserDirectoryOpen}
+        users={registeredUsers}
+        currentUserId={currentUser.id}
+        onClose={() => setIsUserDirectoryOpen(false)}
+        onStartDirectChat={(targetUsername) => {
+          startDirectChat(targetUsername);
+          setIsMobileChatOpen(true);
+        }}
+      />
+
+      {/* 9. Auth & Switch Account Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        currentUser={currentUser}
+        onClose={() => setIsAuthModalOpen(false)}
+        onLogin={login}
       />
     </div>
   );

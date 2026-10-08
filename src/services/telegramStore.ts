@@ -1,41 +1,40 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Chat, 
   CurrentUser, 
   FolderCategory, 
   Message, 
-  MessageReaction, 
   ThemeType, 
   CallState, 
-  Sticker 
+  Sticker,
+  ChatType
 } from '../types/telegram';
 import { CURRENT_USER, INITIAL_CHATS, INITIAL_MESSAGES } from '../data/mockData';
 import { soundEngine } from './audioSimulator';
+import { apiClient, UserDTO, ChatDTO, MessageDTO } from './apiClient';
 
-const STORAGE_KEY_CHATS = 'teleshen_chats_clean_v4';
-const STORAGE_KEY_MSGS = 'teleshen_msgs_clean_v4';
-const STORAGE_KEY_THEME = 'teleshen_theme_clean_v4';
-const STORAGE_KEY_USER = 'teleshen_user_clean_v4';
+const STORAGE_KEY_USER = 'teleshen_session_user_v5';
+const STORAGE_KEY_THEME = 'teleshen_theme_v5';
 
 export type ConnectionState = 'connecting' | 'updating' | 'connected';
 
 export function useTelegramStore() {
   const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
 
+  // Currently logged-in user
   const [currentUser, setCurrentUser] = useState<CurrentUser>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_USER);
     return saved ? JSON.parse(saved) : CURRENT_USER;
   });
 
-  const [chats, setChats] = useState<Chat[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_CHATS);
-    return saved ? JSON.parse(saved) : INITIAL_CHATS;
-  });
+  // Directory of all users registered on the platform
+  const [registeredUsers, setRegisteredUsers] = useState<UserDTO[]>([]);
 
-  const [messages, setMessages] = useState<Record<string, Message[]>>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_MSGS);
-    return saved ? JSON.parse(saved) : INITIAL_MESSAGES;
-  });
+  // Chats list
+  const [chats, setChats] = useState<Chat[]>(() => INITIAL_CHATS);
+
+  // Messages map by chatId
+  const [messages, setMessages] = useState<Record<string, Message[]>>(() => INITIAL_MESSAGES);
 
   const [activeChatId, setActiveChatId] = useState<string>('shen-zero-assistant');
   const [activeFolder, setActiveFolder] = useState<FolderCategory>('all');
@@ -45,6 +44,9 @@ export function useTelegramStore() {
     return saved || 'default';
   });
 
+  // Modals state
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isUserDirectoryOpen, setIsUserDirectoryOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isChatInfoOpen, setIsChatInfoOpen] = useState(false);
@@ -63,21 +65,132 @@ export function useTelegramStore() {
     isSpeakerOn: true,
   });
 
-  // Official Telegram-style connection simulation: Connecting -> Updating -> TELESHEN
+  // 1. Initial Connection Sequence & Backend Boot
   useEffect(() => {
-    const t1 = setTimeout(() => {
-      setConnectionState('updating');
-    }, 1200);
+    let isMounted = true;
 
-    const t2 = setTimeout(() => {
-      setConnectionState('connected');
-    }, 2200);
+    async function initBackend() {
+      try {
+        // Sync registered users from backend
+        const users = await apiClient.getAllUsers();
+        if (isMounted && users.length > 0) {
+          setRegisteredUsers(users);
+        }
+
+        // Sync or register current user with backend
+        if (currentUser) {
+          await apiClient.login(
+            currentUser.handle.replace(/^@/, ''),
+            currentUser.name,
+            currentUser.avatar,
+            currentUser.bio
+          );
+        }
+
+        // Fetch backend chats
+        if (currentUser) {
+          const remoteChats = await apiClient.getChats(currentUser.id);
+          if (isMounted && remoteChats.length > 0) {
+            setChats(prev => {
+              const merged = [...prev];
+              for (const rc of remoteChats) {
+                if (!merged.find(c => c.id === rc.id)) {
+                  merged.push({
+                    id: rc.id,
+                    title: rc.title,
+                    avatar: rc.avatar,
+                    type: rc.type,
+                    unreadCount: 0,
+                    categories: ['all', rc.type === 'bot' ? 'bots' : 'personal'],
+                    bio: rc.bio,
+                    isPinned: rc.isPinned,
+                  });
+                }
+              }
+              return merged;
+            });
+          }
+        }
+      } catch {
+        // Silent offline fallback
+      } finally {
+        if (isMounted) {
+          setTimeout(() => setConnectionState('updating'), 800);
+          setTimeout(() => setConnectionState('connected'), 1600);
+        }
+      }
+    }
+
+    initBackend();
+
+    // Subscribe to Real-Time Server-Sent Events (SSE)
+    const unsubscribe = apiClient.subscribeToEvents({
+      onNewMessage: (msg: MessageDTO) => {
+        setMessages(prev => {
+          const list = prev[msg.chatId] || [];
+          if (list.some(m => m.id === msg.id)) return prev;
+          const formatted: Message = {
+            ...msg,
+            isOutgoing: msg.senderId === currentUser.id,
+            reactions: (msg.reactions || []).map(r => ({
+              emoji: r.emoji,
+              count: r.count,
+              hasReacted: Array.isArray(r.users) ? r.users.includes(currentUser.id) : false,
+            })),
+          };
+          return {
+            ...prev,
+            [msg.chatId]: [...list, formatted],
+          };
+        });
+
+        if (msg.senderId !== currentUser.id) {
+          soundEngine.playReceive();
+        }
+      },
+      onUserJoined: (newUser: UserDTO) => {
+        setRegisteredUsers(prev => {
+          if (prev.some(u => u.id === newUser.id)) return prev;
+          return [...prev, newUser];
+        });
+      },
+      onChatCreated: (newChat: ChatDTO) => {
+        setChats(prev => {
+          if (prev.some(c => c.id === newChat.id)) return prev;
+          return [{
+            id: newChat.id,
+            title: newChat.title,
+            avatar: newChat.avatar,
+            type: newChat.type,
+            unreadCount: 0,
+            categories: ['all', newChat.type === 'bot' ? 'bots' : 'personal'],
+            bio: newChat.bio,
+          }, ...prev];
+        });
+      },
+      onReactionUpdated: ({ chatId, messageId, reactions }) => {
+        setMessages(prev => {
+          const list = prev[chatId] || [];
+          return {
+            ...prev,
+            [chatId]: list.map(m => m.id === messageId ? {
+              ...m,
+              reactions: reactions.map(r => ({
+                emoji: r.emoji,
+                count: r.count,
+                hasReacted: r.users.includes(currentUser.id),
+              }))
+            } : m),
+          };
+        });
+      },
+    });
 
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
+      isMounted = false;
+      unsubscribe();
     };
-  }, []);
+  }, [currentUser]);
 
   // Apply theme to DOM
   useEffect(() => {
@@ -85,20 +198,12 @@ export function useTelegramStore() {
     localStorage.setItem(STORAGE_KEY_THEME, theme);
   }, [theme]);
 
-  // Sync to local storage
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_CHATS, JSON.stringify(chats));
-  }, [chats]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_MSGS, JSON.stringify(messages));
-  }, [messages]);
-
+  // Persist current session
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
   }, [currentUser]);
 
-  // Call timer
+  // Call duration counter
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (callState.isActive && callState.status === 'connected') {
@@ -118,11 +223,127 @@ export function useTelegramStore() {
     setChats(prev => prev.map(c => c.id === chatId ? { ...c, unreadCount: 0 } : c));
   }, []);
 
-  const sendMessage = useCallback((content: string, type: Message['type'] = 'text', extra?: Partial<Message>) => {
+  // Login handler
+  const login = useCallback(async (username: string, name: string, avatar: string, bio: string) => {
+    const cleanUsername = username.trim().toLowerCase().replace(/^@/, '');
+    const user = await apiClient.login(cleanUsername, name, avatar, bio);
+    const updated: CurrentUser = {
+      id: user.id,
+      name: user.name,
+      handle: `@${user.username}`,
+      phone: '+98 912 345 6789',
+      bio: user.bio || '',
+      avatar: user.avatar,
+      isPremium: true,
+    };
+    setCurrentUser(updated);
+
+    // Refresh users directory
+    const freshUsers = await apiClient.getAllUsers();
+    setRegisteredUsers(freshUsers);
+  }, []);
+
+  // Start 1-on-1 Direct Chat with any registered user
+  const startDirectChat = useCallback(async (targetUsername: string) => {
+    const cleanTarget = targetUsername.trim().toLowerCase().replace(/^@/, '');
+    
+    // Check if target is support
+    if (cleanTarget === 'shervini') {
+      selectChat('shervini-support');
+      return;
+    }
+    if (cleanTarget === 'shen_zero_bot') {
+      selectChat('shen-zero-assistant');
+      return;
+    }
+
+    try {
+      const chat = await apiClient.createDirectChat(currentUser.id, cleanTarget);
+      const newChatObj: Chat = {
+        id: chat.id,
+        title: chat.title,
+        avatar: chat.avatar,
+        type: 'user',
+        username: cleanTarget,
+        unreadCount: 0,
+        categories: ['all', 'personal'],
+        bio: chat.bio,
+        isOnline: true,
+      };
+
+      setChats(prev => {
+        if (prev.some(c => c.id === chat.id)) return prev;
+        return [newChatObj, ...prev];
+      });
+
+      selectChat(chat.id);
+    } catch {
+      // Local fallback
+      const localId = `chat_dir_${cleanTarget}`;
+      const newChatObj: Chat = {
+        id: localId,
+        title: `@${cleanTarget}`,
+        avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanTarget}`,
+        type: 'user',
+        username: cleanTarget,
+        unreadCount: 0,
+        categories: ['all', 'personal'],
+        isOnline: true,
+      };
+      setChats(prev => [newChatObj, ...prev]);
+      selectChat(localId);
+    }
+  }, [currentUser.id, selectChat]);
+
+  // Create group or channel with members
+  const createGroupChat = useCallback(async (title: string, type: ChatType, memberIds: string[], bio?: string) => {
+    try {
+      const chat = await apiClient.createGroupChat(
+        currentUser.id,
+        title,
+        type === 'channel' ? 'channel' : 'group',
+        memberIds,
+        bio
+      );
+
+      const newChatObj: Chat = {
+        id: chat.id,
+        title: chat.title,
+        avatar: chat.avatar,
+        type: chat.type,
+        unreadCount: 0,
+        categories: ['all', type === 'channel' ? 'channels' : 'groups'],
+        memberCount: (memberIds.length || 0) + 1,
+        bio: chat.bio,
+      };
+
+      setChats(prev => [newChatObj, ...prev]);
+      selectChat(chat.id);
+    } catch {
+      // Local fallback
+      const id = `chat_grp_${Date.now()}`;
+      const newChatObj: Chat = {
+        id,
+        title,
+        avatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150&auto=format&fit=crop&q=80',
+        type: type === 'channel' ? 'channel' : 'group',
+        unreadCount: 0,
+        categories: ['all', type === 'channel' ? 'channels' : 'groups'],
+        memberCount: memberIds.length + 1,
+        bio,
+      };
+      setChats(prev => [newChatObj, ...prev]);
+      selectChat(id);
+    }
+  }, [currentUser.id, selectChat]);
+
+  // Send Message
+  const sendMessage = useCallback(async (content: string, type: Message['type'] = 'text', extra?: Partial<Message>) => {
     if (!content.trim() && type === 'text') return;
 
+    const tempId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const newMsg: Message = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: tempId,
       chatId: activeChatId,
       senderId: currentUser.id,
       senderName: currentUser.name,
@@ -135,13 +356,14 @@ export function useTelegramStore() {
       replyTo: replyMessage ? {
         id: replyMessage.id,
         senderName: replyMessage.senderName,
-        text: replyMessage.content.slice(0, 50) + (replyMessage.content.length > 50 ? '...' : ''),
+        text: replyMessage.content.slice(0, 50),
       } : undefined,
       ...extra,
     };
 
     soundEngine.playSent();
 
+    // Optimistic local update
     setMessages(prev => ({
       ...prev,
       [activeChatId]: [...(prev[activeChatId] || []), newMsg],
@@ -149,25 +371,35 @@ export function useTelegramStore() {
 
     setReplyMessage(null);
 
-    // AI Assistant ®️SHΞN™ᴢᴇʀᴏ intelligent response simulation
+    // Send to backend for live broadcast to other participants
+    try {
+      await apiClient.sendMessage(activeChatId, {
+        senderId: currentUser.id,
+        content,
+        type,
+        mediaUrl: extra?.mediaUrl,
+        mediaName: extra?.mediaName,
+        mediaSize: extra?.mediaSize,
+        duration: extra?.duration,
+        waveform: extra?.waveform,
+        replyTo: newMsg.replyTo,
+      });
+    } catch {
+      // Already rendered optimistically
+    }
+
+    // Assistant special response if active chat is shen-zero
     if (activeChatId === 'shen-zero-assistant') {
-      // Simulate typing indicator in chat
-      setChats(prev => prev.map(c => c.id === 'shen-zero-assistant' ? { ...c, typingUser: '®️SHΞN™ᴢᴇʀᴏ' } : c));
-
       setTimeout(() => {
-        let assistantReply = '';
-        const trimmed = content.trim().toLowerCase();
+        let assistantReply = `پیام شما دریافت شد: «${content}».\nمن ®️SHΞN™ᴢᴇʀᴏ هستم و در تمامی بخش‌های TELESHΞN™ در کنار شما خواهم بود.`;
+        const lower = content.toLowerCase();
 
-        if (trimmed.includes('سلام') || trimmed.includes('درود') || trimmed.includes('hello') || trimmed.includes('hi')) {
-          assistantReply = 'درود بر شما! من دستیار اختصاصی ®️SHΞN™ᴢᴇʀᴏ در پلتفرم TELESHΞN™ هستم. چطور می‌تونم کمکتون کنم؟';
-        } else if (trimmed.includes('کی هستی') || trimmed.includes('who are you') || trimmed.includes('معرفی')) {
-          assistantReply = 'من ®️SHΞN™ᴢᴇʀᴏ، دستیار هوشمند و رسمی مستقر در کلاینت TELESHΞN™ هستم. طراحی شده توسط SHΞЯVIN™ برای ارتقای تجربه کاربری تلگرام شما.';
-        } else if (trimmed.includes('پشتیبانی') || trimmed.includes('support') || trimmed.includes('شروین') || trimmed.includes('shervin')) {
-          assistantReply = 'برای ارتباط با شروین یا پشتیبانی رسمی، می‌توانید مستقیماً به چت @shervini پیام ارسال کنید.';
-        } else if (trimmed.includes('تم') || trimmed.includes('theme') || trimmed.includes('رنگ')) {
-          assistantReply = 'می‌توانید تم TELESHΞN™ را از منوی تنظیمات بین تم‌های Midnight OLED، کلاسیک تلگرام، زمردی و سایبر تغییر دهید.';
-        } else {
-          assistantReply = `پیام شما دریافت شد: «${content}».\nمن ®️SHΞN™ᴢᴇʀᴏ هستم و در تمامی بخش‌های TELESHΞN™ در کنار شما خواهم بود. چنانچه نیاز به پشتیبانی بیشتر داشتید به چت پشتیبانی (@shervini) مراجعه کنید.`;
+        if (lower.includes('سلام') || lower.includes('درود') || lower.includes('hi') || lower.includes('hello')) {
+          assistantReply = `درود بر شما ${currentUser.name}! خوش آمدید به TELESHΞN™. آماده‌ام تا به سوالات شما پاسخ دهم یا شما را به سایر کاربران متصل کنم.`;
+        } else if (lower.includes('پشتیبانی') || lower.includes('support') || lower.includes('شروین')) {
+          assistantReply = 'برای مکاتبه با شروین، کافیست به چت «SHΞЯVIN™ Support» (@shervini) پیام بفرستید.';
+        } else if (lower.includes('کاربر') || lower.includes('user') || lower.includes('لیست')) {
+          assistantReply = 'از دکمه «کاربران فعال» در منوی کشویی سایدبار می‌توانید لیست همه کاربران ثبت‌نام شده را ببینید و با هر کسی چت مستقیم را شروع کنید.';
         }
 
         const botMsg: Message = {
@@ -186,35 +418,8 @@ export function useTelegramStore() {
           ...prev,
           'shen-zero-assistant': [...(prev['shen-zero-assistant'] || []), botMsg],
         }));
-
-        setChats(prev => prev.map(c => c.id === 'shen-zero-assistant' ? { ...c, typingUser: undefined } : c));
         soundEngine.playReceive();
-      }, 1000);
-    } else if (activeChatId === 'shervini-support') {
-      // Simulate typing indicator
-      setChats(prev => prev.map(c => c.id === 'shervini-support' ? { ...c, typingUser: 'SHΞЯVIN™ Support' } : c));
-
-      setTimeout(() => {
-        const supportMsg: Message = {
-          id: `msg_sh_${Date.now()}`,
-          chatId: 'shervini-support',
-          senderId: 'shervini',
-          senderName: 'SHΞЯVIN™ Support',
-          content: 'پیام شما به اکانت رسمی @shervini رسید. به زودی پاسخ داده خواهد شد.',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          status: 'read',
-          isOutgoing: false,
-          type: 'text',
-        };
-
-        setMessages(prev => ({
-          ...prev,
-          'shervini-support': [...(prev['shervini-support'] || []), supportMsg],
-        }));
-
-        setChats(prev => prev.map(c => c.id === 'shervini-support' ? { ...c, typingUser: undefined } : c));
-        soundEngine.playReceive();
-      }, 1200);
+      }, 900);
     }
   }, [activeChatId, currentUser, replyMessage]);
 
@@ -239,10 +444,10 @@ export function useTelegramStore() {
       const updated = chatMsgs.map(msg => {
         if (msg.id !== messageId) return msg;
 
-        const currentReactions: MessageReaction[] = msg.reactions || [];
+        const currentReactions = msg.reactions || [];
         const existing = currentReactions.find(r => r.emoji === emoji);
 
-        let nextReactions: MessageReaction[];
+        let nextReactions;
         if (existing) {
           if (existing.hasReacted) {
             nextReactions = currentReactions
@@ -260,26 +465,29 @@ export function useTelegramStore() {
 
       return { ...prev, [activeChatId]: updated };
     });
-  }, [activeChatId]);
+
+    // Notify backend
+    apiClient.toggleReaction(activeChatId, messageId, currentUser.id, emoji);
+  }, [activeChatId, currentUser.id]);
 
   const pinMessage = useCallback((message: Message) => {
     setMessages(prev => {
       const chatMsgs = prev[activeChatId] || [];
-      const updated = chatMsgs.map(m => ({
-        ...m,
-        isPinned: m.id === message.id,
-      }));
-      return { ...prev, [activeChatId]: updated };
+      return {
+        ...prev,
+        [activeChatId]: chatMsgs.map(m => ({ ...m, isPinned: m.id === message.id })),
+      };
     });
-
     setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, pinnedMessage: message } : c));
   }, [activeChatId]);
 
   const unpinMessage = useCallback(() => {
     setMessages(prev => {
       const chatMsgs = prev[activeChatId] || [];
-      const updated = chatMsgs.map(m => ({ ...m, isPinned: false }));
-      return { ...prev, [activeChatId]: updated };
+      return {
+        ...prev,
+        [activeChatId]: chatMsgs.map(m => ({ ...m, isPinned: false })),
+      };
     });
     setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, pinnedMessage: undefined } : c));
   }, [activeChatId]);
@@ -293,10 +501,6 @@ export function useTelegramStore() {
 
   const toggleMute = useCallback((chatId: string) => {
     setChats(prev => prev.map(c => c.id === chatId ? { ...c, isMuted: !c.isMuted } : c));
-  }, []);
-
-  const togglePinChat = useCallback((chatId: string) => {
-    setChats(prev => prev.map(c => c.id === chatId ? { ...c, isPinned: !c.isPinned } : c));
   }, []);
 
   const startCall = useCallback((chat: Chat) => {
@@ -334,26 +538,10 @@ export function useTelegramStore() {
     setCurrentUser(prev => ({ ...prev, ...updated }));
   }, []);
 
-  const createChat = useCallback((newChat: Partial<Chat>) => {
-    const id = `chat_${Date.now()}`;
-    const chat: Chat = {
-      id,
-      title: newChat.title || 'New Chat',
-      avatar: newChat.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      type: newChat.type || 'group',
-      unreadCount: 0,
-      categories: ['all', newChat.type === 'channel' ? 'channels' : 'groups'],
-      memberCount: newChat.type === 'channel' ? 1 : 2,
-      ...newChat,
-    };
-    setChats(prev => [chat, ...prev]);
-    setActiveChatId(id);
-    setIsNewChatModalOpen(false);
-  }, []);
-
   return {
     connectionState,
     currentUser,
+    registeredUsers,
     chats,
     activeChat,
     activeChatId,
@@ -361,6 +549,8 @@ export function useTelegramStore() {
     activeFolder,
     searchQuery,
     theme,
+    isAuthModalOpen,
+    isUserDirectoryOpen,
     isDrawerOpen,
     isSettingsOpen,
     isChatInfoOpen,
@@ -371,6 +561,8 @@ export function useTelegramStore() {
     setSearchQuery,
     setActiveFolder,
     setTheme,
+    setIsAuthModalOpen,
+    setIsUserDirectoryOpen,
     setIsDrawerOpen,
     setIsSettingsOpen,
     setIsChatInfoOpen,
@@ -379,6 +571,9 @@ export function useTelegramStore() {
     setReplyMessage,
     setCallState,
     selectChat,
+    login,
+    startDirectChat,
+    createGroupChat,
     sendMessage,
     sendVoiceNote,
     sendSticker,
@@ -387,10 +582,8 @@ export function useTelegramStore() {
     unpinMessage,
     deleteMessage,
     toggleMute,
-    togglePinChat,
     startCall,
     endCall,
     updateProfile,
-    createChat,
   };
 }
