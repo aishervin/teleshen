@@ -3,6 +3,8 @@ import {
   getAuth, 
   GoogleAuthProvider, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   signOut as fbSignOut,
   onAuthStateChanged,
   User as FirebaseUser
@@ -22,22 +24,57 @@ export interface GoogleAuthResult {
   displayName: string | null;
   photoURL: string | null;
   username: string;
+  name: string;
+  avatar: string;
+  bio: string;
   role: 'owner' | 'member';
   isOwner: boolean;
 }
 
 /**
- * Standard Firebase Google Sign-In with official Google OAuth Popup window.
+ * Standard Firebase Google Sign-In with official Google OAuth Popup window
+ * and seamless mobile redirect fallback.
  */
 export async function signInWithGoogle(): Promise<GoogleAuthResult> {
-  const result = await signInWithPopup(auth, googleProvider);
-  const user = result.user;
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return processGoogleUser(result.user);
+  } catch (err: unknown) {
+    const errObj = err as { code?: string; message?: string };
+    // If popup was blocked or closed on mobile, fallback to redirect
+    if (errObj.code === 'auth/popup-blocked' || errObj.code === 'auth/popup-closed-by-user') {
+      try {
+        await signInWithRedirect(auth, googleProvider);
+        return new Promise(() => {}); // Wait for page redirect
+      } catch {
+        // ignore
+      }
+    }
+    throw err;
+  }
+}
 
-  return processGoogleUser({
-    uid: user.uid,
-    email: user.email,
-    displayName: user.displayName,
-    photoURL: user.photoURL,
+/**
+ * Global Real-Time Auth State Listener.
+ * Catches Google Login completion from Popups, Redirects, and Sessions.
+ */
+export function subscribeToAuth(callback: (user: GoogleAuthResult | null) => void) {
+  // Check redirect result when mobile browser returns from Google
+  getRedirectResult(auth)
+    .then(async (result) => {
+      if (result?.user) {
+        const processed = await processGoogleUser(result.user);
+        callback(processed);
+      }
+    })
+    .catch(() => {});
+
+  // Real-time auth listener for popups and persistent sessions
+  return onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      const processed = await processGoogleUser(user);
+      callback(processed);
+    }
   });
 }
 
@@ -82,6 +119,9 @@ export async function processGoogleUser(rawUser: {
     displayName,
     photoURL: rawUser.photoURL,
     username,
+    name: displayName,
+    avatar: rawUser.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`,
+    bio,
     role,
     isOwner,
   };

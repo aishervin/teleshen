@@ -12,6 +12,7 @@ import {
 import { CURRENT_USER, INITIAL_CHATS, INITIAL_MESSAGES } from '../data/mockData';
 import { soundEngine } from './audioSimulator';
 import { apiClient, UserDTO, ChatDTO, MessageDTO } from './apiClient';
+import { subscribeToAuth } from './firebase';
 
 const STORAGE_KEY_USER = 'teleshen_session_user_v5';
 const STORAGE_KEY_THEME = 'teleshen_theme_v5';
@@ -65,9 +66,64 @@ export function useTelegramStore() {
     isSpeakerOn: true,
   });
 
+  // Google Login handler
+  const googleLogin = useCallback(async (userObj: {
+    username: string;
+    name: string;
+    avatar: string;
+    bio: string;
+    email?: string;
+    role?: 'owner' | 'admin' | 'member';
+    isOwner?: boolean;
+  }) => {
+    const updated: CurrentUser = {
+      id: `user_${userObj.username}`,
+      name: userObj.name,
+      handle: `@${userObj.username}`,
+      phone: '+98 912 345 6789',
+      bio: userObj.bio,
+      avatar: userObj.avatar,
+      isPremium: true,
+      email: userObj.email,
+      role: userObj.role,
+      isOwner: userObj.isOwner,
+    };
+    setCurrentUser(updated);
+    try {
+      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+
+    try {
+      await apiClient.register(
+        userObj.username,
+        'google_auth',
+        userObj.name,
+        userObj.avatar,
+        userObj.bio
+      );
+    } catch {
+      // ignore
+    }
+
+    const freshUsers = await apiClient.getAllUsers();
+    setRegisteredUsers(freshUsers);
+  }, []);
+
   // 1. Initial Connection Sequence & Backend Boot
   useEffect(() => {
     let isMounted = true;
+
+    // Listen to Google / Firebase real-time auth completion
+    const unsubscribeAuth = subscribeToAuth((googleUser) => {
+      if (googleUser && isMounted) {
+        googleLogin({
+          ...googleUser,
+          email: googleUser.email || undefined,
+        });
+      }
+    });
 
     async function initBackend() {
       try {
@@ -186,8 +242,9 @@ export function useTelegramStore() {
     return () => {
       isMounted = false;
       unsubscribe();
+      unsubscribeAuth();
     };
-  }, [currentUser]);
+  }, [currentUser, googleLogin]);
 
   // Apply theme to DOM
   useEffect(() => {
@@ -260,46 +317,6 @@ export function useTelegramStore() {
     setCurrentUser(updated);
 
     // Refresh users directory
-    const freshUsers = await apiClient.getAllUsers();
-    setRegisteredUsers(freshUsers);
-  }, []);
-
-  // Google Login handler
-  const googleLogin = useCallback(async (userObj: {
-    username: string;
-    name: string;
-    avatar: string;
-    bio: string;
-    email?: string;
-    role?: 'owner' | 'admin' | 'member';
-    isOwner?: boolean;
-  }) => {
-    const updated: CurrentUser = {
-      id: `user_${userObj.username}`,
-      name: userObj.name,
-      handle: `@${userObj.username}`,
-      phone: '+98 912 345 6789',
-      bio: userObj.bio,
-      avatar: userObj.avatar,
-      isPremium: true,
-      email: userObj.email,
-      role: userObj.role,
-      isOwner: userObj.isOwner,
-    };
-    setCurrentUser(updated);
-
-    try {
-      await apiClient.register(
-        userObj.username,
-        'google_auth',
-        userObj.name,
-        userObj.avatar,
-        userObj.bio
-      );
-    } catch {
-      // ignore
-    }
-
     const freshUsers = await apiClient.getAllUsers();
     setRegisteredUsers(freshUsers);
   }, []);
