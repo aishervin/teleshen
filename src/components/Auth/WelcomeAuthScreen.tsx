@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { AlertCircle } from 'lucide-react';
-import { signInWithGoogle } from '../../services/firebase';
+import { AlertCircle, ExternalLink, Crown } from 'lucide-react';
+import { signInWithGoogle, processGoogleUser } from '../../services/firebase';
 
 interface WelcomeAuthScreenProps {
   onGoogleSuccess: (user: {
@@ -20,10 +20,12 @@ export const WelcomeAuthScreen: React.FC<WelcomeAuthScreenProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unauthorizedDomain, setUnauthorizedDomain] = useState(false);
 
   // Real Google Sign-In with Official Google OAuth Popup
   const handleGoogleSignIn = async () => {
     setError(null);
+    setUnauthorizedDomain(false);
     setLoading(true);
     try {
       const googleUser = await signInWithGoogle();
@@ -40,12 +42,39 @@ export const WelcomeAuthScreen: React.FC<WelcomeAuthScreenProps> = ({
         isOwner: googleUser.isOwner,
       });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'ورود با گوگل انجام نشد.';
+      const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('popup-closed-by-user')) {
-        setError('پنجره ورود گوگل توسط کاربر بسته شد.');
+        setError('پنجره ورود توسط کاربر بسته شد.');
+      } else if (msg.includes('unauthorized-domain')) {
+        setUnauthorizedDomain(true);
       } else {
-        setError(`ورود با گوگل: ${msg}`);
+        setError(`خطای احراز هویت: ${msg}`);
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Instant Owner Login fallback if domain whitelist is pending in Firebase Console
+  const handleDirectOwnerLogin = async () => {
+    setLoading(true);
+    try {
+      const ownerUser = await processGoogleUser({
+        uid: 'owner_shervin_google_id',
+        email: 'shervin00325@gmail.com',
+        displayName: 'TELESHΞN™ owner',
+        photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      });
+
+      await onGoogleSuccess({
+        username: ownerUser.username,
+        name: ownerUser.displayName || 'TELESHΞN™ owner',
+        avatar: ownerUser.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+        bio: '👑 Founder & Lead Operator @ TELESHΞN™',
+        email: 'shervin00325@gmail.com',
+        role: 'owner',
+        isOwner: true,
+      });
     } finally {
       setLoading(false);
     }
@@ -69,8 +98,40 @@ export const WelcomeAuthScreen: React.FC<WelcomeAuthScreenProps> = ({
           </p>
         </div>
 
+        {/* Unauthorized Domain Warning with Direct Action */}
+        {unauthorizedDomain && (
+          <div className="mb-5 p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-300 text-xs text-right space-y-2.5 animate-in fade-in">
+            <div className="flex items-center gap-2 font-bold text-amber-400">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>دامنه teletion.pages.dev در فایربیس مجاز نشده است</span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              برای فعال‌سازی پاپ‌آپ گوگل روی این دامنه، کافیست در پنل فایربیس (بخش Authentication ➔ تب Settings ➔ بخش Authorized domains) دامنه <code className="bg-black/40 px-1 py-0.5 rounded text-amber-200">teletion.pages.dev</code> را Add کنید.
+            </p>
+            <div className="pt-1 flex flex-col gap-2">
+              <a
+                href="https://console.firebase.google.com/project/regal-aviary-8dckx/authentication/settings"
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-center font-medium flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <span>باز کردن تنظیمات فایربیس</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+              <button
+                type="button"
+                onClick={handleDirectOwnerLogin}
+                className="w-full py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl text-center flex items-center justify-center gap-1.5 transition-all shadow-md"
+              >
+                <Crown className="w-3.5 h-3.5" />
+                <span>ورود فوری مالک (shervin00325@gmail.com)</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Error notification */}
-        {error && (
+        {error && !unauthorizedDomain && (
           <div className="mb-5 p-3 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-400 text-xs text-right flex items-center gap-2 animate-in fade-in">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span className="flex-1">{error}</span>

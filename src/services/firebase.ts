@@ -7,7 +7,7 @@ import {
   onAuthStateChanged,
   User as FirebaseUser
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
@@ -15,22 +15,6 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        oauth2: {
-          initTokenClient: (config: {
-            client_id: string;
-            scope: string;
-            callback: (response: { access_token?: string; error?: string }) => void;
-          }) => { requestAccessToken: () => void };
-        };
-      };
-    };
-  }
-}
 
 export interface GoogleAuthResult {
   uid: string;
@@ -43,70 +27,21 @@ export interface GoogleAuthResult {
 }
 
 /**
- * Real Google Sign-In with official Google OAuth Popup window.
- * Fallbacks directly to Google Identity Services Token Client if the domain
- * has not yet been whitelisted in Firebase Console.
+ * Standard Firebase Google Sign-In with official Google OAuth Popup window.
  */
 export async function signInWithGoogle(): Promise<GoogleAuthResult> {
-  // 1. First attempt: Standard Firebase Popup
-  try {
-    const result = await signInWithPopup(auth, googleProvider);
-    const user = result.user;
+  const result = await signInWithPopup(auth, googleProvider);
+  const user = result.user;
 
-    return processGoogleUser({
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName,
-      photoURL: user.photoURL,
-    });
-  } catch (err: unknown) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    console.warn('Firebase popup notice, checking Google Identity Client:', errMsg);
-
-    // 2. If unauthorized-domain or popup error, use Google Identity Services directly
-    if (window.google?.accounts?.oauth2) {
-      return new Promise<GoogleAuthResult>((resolve, reject) => {
-        try {
-          const client = window.google!.accounts.oauth2.initTokenClient({
-            client_id: firebaseConfig.oAuthClientId,
-            scope: 'openid email profile',
-            callback: async (tokenResponse) => {
-              if (tokenResponse.error || !tokenResponse.access_token) {
-                reject(new Error(tokenResponse.error || 'پنجره ورود توسط کاربر بسته شد.'));
-                return;
-              }
-
-              try {
-                // Fetch verified profile directly from Google
-                const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                  headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
-                });
-                const userInfo = await userInfoRes.json();
-
-                const processed = await processGoogleUser({
-                  uid: userInfo.sub || `google_${Date.now()}`,
-                  email: userInfo.email,
-                  displayName: userInfo.name,
-                  photoURL: userInfo.picture,
-                });
-                resolve(processed);
-              } catch (fetchErr) {
-                reject(fetchErr);
-              }
-            },
-          });
-          client.requestAccessToken();
-        } catch (oauthErr) {
-          reject(oauthErr);
-        }
-      });
-    }
-
-    throw err;
-  }
+  return processGoogleUser({
+    uid: user.uid,
+    email: user.email,
+    displayName: user.displayName,
+    photoURL: user.photoURL,
+  });
 }
 
-async function processGoogleUser(rawUser: {
+export async function processGoogleUser(rawUser: {
   uid: string;
   email: string | null;
   displayName: string | null;
