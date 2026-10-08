@@ -72,9 +72,16 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+    // Enter key does NOT send the message. It allows creating new lines in the editor.
+    // Messages are only sent by clicking the Send button.
+    if (e.key === 'Enter') {
+      // Natural newline insertion - do not prevent default or submit!
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.style.height = 'auto';
+          inputRef.current.style.height = `${Math.min(140, inputRef.current.scrollHeight)}px`;
+        }
+      }, 0);
     }
   };
 
@@ -259,11 +266,13 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             <textarea
               ref={inputRef}
               rows={1}
+              dir="auto"
               value={text}
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}
-              placeholder={isBot ? "Write a message or /command..." : "Write a message..."}
-              className="flex-1 bg-transparent text-sm text-slate-100 placeholder:text-slate-500 resize-none outline-none max-h-28 overflow-y-auto"
+              placeholder={isBot ? "پیام بنویسید یا دستور / ..." : "پیام بنویسید..."}
+              style={{ unicodeBidi: 'plaintext', textAlign: 'start' }}
+              className="flex-1 bg-transparent text-sm sm:text-base text-slate-100 placeholder:text-slate-500 resize-none outline-none max-h-36 overflow-y-auto leading-relaxed py-1 bidi-text"
             />
 
             {/* Sticker / Emoji trigger */}

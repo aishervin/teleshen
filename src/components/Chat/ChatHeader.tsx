@@ -78,7 +78,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           className="cursor-pointer min-w-0 flex flex-col justify-center"
         >
           <div className="flex items-center gap-1.5 leading-tight">
-            <span className="font-semibold text-slate-100 text-sm truncate max-w-[160px] sm:max-w-xs md:max-w-md">
+            <span dir="auto" className="font-semibold text-slate-100 text-sm truncate max-w-[160px] sm:max-w-xs md:max-w-md">
               {chat.title}
             </span>
             {chat.isVerified && (

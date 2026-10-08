@@ -181,7 +181,11 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             </button>
           </div>
         ) : (
-          <div className="leading-relaxed whitespace-pre-wrap break-words text-[13.5px]">
+          <div 
+            dir="auto" 
+            style={{ unicodeBidi: 'plaintext', textAlign: 'start' }}
+            className="leading-relaxed whitespace-pre-wrap break-words text-[14px] bidi-text select-text"
+          >
             {message.content}
           </div>
         )}

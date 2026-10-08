@@ -87,7 +87,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-950 font-sans text-slate-100">
+    <div className="flex h-mobile-screen w-screen overflow-hidden bg-slate-950 font-sans text-slate-100">
       {/* 1. Left Sidebar: visible on desktop, or mobile when chat is closed */}
       <div className={`h-full ${isMobileChatOpen ? 'hidden md:flex' : 'flex w-full md:w-auto'}`}>
         <LeftSidebar
