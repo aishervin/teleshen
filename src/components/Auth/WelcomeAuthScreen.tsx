@@ -11,7 +11,7 @@ interface WelcomeAuthScreenProps {
     email?: string;
     role?: 'owner' | 'admin' | 'member';
     isOwner?: boolean;
-  }) => Promise<void>;
+  }) => void | Promise<void>;
   onQuickLogin?: (username: string, name: string) => Promise<void>;
 }
 

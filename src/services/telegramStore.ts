@@ -67,7 +67,7 @@ export function useTelegramStore() {
   });
 
   // Google Login handler
-  const googleLogin = useCallback(async (userObj: {
+  const googleLogin = useCallback((userObj: {
     username: string;
     name: string;
     avatar: string;
@@ -88,27 +88,27 @@ export function useTelegramStore() {
       role: userObj.role,
       isOwner: userObj.isOwner,
     };
-    setCurrentUser(updated);
+
+    // Immediate state and localStorage update -> instant app transition!
     try {
       localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(updated));
     } catch {
       // ignore
     }
+    setCurrentUser(updated);
 
-    try {
-      await apiClient.register(
-        userObj.username,
-        'google_auth',
-        userObj.name,
-        userObj.avatar,
-        userObj.bio
-      );
-    } catch {
-      // ignore
-    }
+    // Non-blocking background sync
+    apiClient.register(
+      userObj.username,
+      'google_auth',
+      userObj.name,
+      userObj.avatar,
+      userObj.bio
+    ).catch(() => {});
 
-    const freshUsers = await apiClient.getAllUsers();
-    setRegisteredUsers(freshUsers);
+    apiClient.getAllUsers().then(users => {
+      setRegisteredUsers(users);
+    }).catch(() => {});
   }, []);
 
   // 1. Initial Connection Sequence & Backend Boot

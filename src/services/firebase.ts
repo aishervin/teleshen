@@ -3,10 +3,9 @@ import {
   getAuth, 
   GoogleAuthProvider, 
   signInWithPopup, 
-  signInWithRedirect,
-  getRedirectResult,
   signOut as fbSignOut,
   onAuthStateChanged,
+  getRedirectResult,
   User as FirebaseUser
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
@@ -14,7 +13,7 @@ import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
@@ -32,58 +31,46 @@ export interface GoogleAuthResult {
 }
 
 /**
- * Standard Firebase Google Sign-In with official Google OAuth Popup window
- * and seamless mobile redirect fallback.
+ * Fast, non-blocking Google Sign-In with official Google OAuth Popup.
  */
 export async function signInWithGoogle(): Promise<GoogleAuthResult> {
-  try {
-    const result = await signInWithPopup(auth, googleProvider);
-    return processGoogleUser(result.user);
-  } catch (err: unknown) {
-    const errObj = err as { code?: string; message?: string };
-    // If popup was blocked or closed on mobile, fallback to redirect
-    if (errObj.code === 'auth/popup-blocked' || errObj.code === 'auth/popup-closed-by-user') {
-      try {
-        await signInWithRedirect(auth, googleProvider);
-        return new Promise(() => {}); // Wait for page redirect
-      } catch {
-        // ignore
-      }
-    }
-    throw err;
-  }
+  const result = await signInWithPopup(auth, googleProvider);
+  return processGoogleUser(result.user);
 }
 
 /**
  * Global Real-Time Auth State Listener.
- * Catches Google Login completion from Popups, Redirects, and Sessions.
+ * Fires immediately when user is authenticated by Firebase.
  */
 export function subscribeToAuth(callback: (user: GoogleAuthResult | null) => void) {
-  // Check redirect result when mobile browser returns from Google
+  // Check redirect result for mobile page return
   getRedirectResult(auth)
-    .then(async (result) => {
+    .then((result) => {
       if (result?.user) {
-        const processed = await processGoogleUser(result.user);
+        const processed = processGoogleUser(result.user);
         callback(processed);
       }
     })
     .catch(() => {});
 
   // Real-time auth listener for popups and persistent sessions
-  return onAuthStateChanged(auth, async (user) => {
+  return onAuthStateChanged(auth, (user) => {
     if (user) {
-      const processed = await processGoogleUser(user);
+      const processed = processGoogleUser(user);
       callback(processed);
     }
   });
 }
 
-export async function processGoogleUser(rawUser: {
+/**
+ * Pure synchronous user processing - never blocks or hangs the UI thread.
+ */
+export function processGoogleUser(rawUser: {
   uid: string;
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-}): Promise<GoogleAuthResult> {
+}): GoogleAuthResult {
   const isOwner = (rawUser.email?.toLowerCase() === 'shervin00325@gmail.com');
   
   let rawName = rawUser.email ? rawUser.email.split('@')[0] : (rawUser.displayName || 'user');
@@ -94,37 +81,40 @@ export async function processGoogleUser(rawUser: {
   const displayName = isOwner ? 'TELESHΞN™ owner' : (rawUser.displayName || username);
   const role: 'owner' | 'member' = isOwner ? 'owner' : 'member';
   const bio = isOwner ? '👑 Founder & Lead Operator @ TELESHΞN™' : 'Google Verified Member @ TELESHΞN™';
+  const avatar = rawUser.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`;
 
-  // Save/Update profile in Firestore (best effort)
-  try {
-    const userDocRef = doc(db, 'users', rawUser.uid);
-    await setDoc(userDocRef, {
-      uid: rawUser.uid,
-      username,
-      name: displayName,
-      email: rawUser.email || '',
-      avatar: rawUser.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`,
-      bio,
-      role,
-      isOwner,
-      updatedAt: new Date().toISOString(),
-    }, { merge: true });
-  } catch {
-    // If firestore is restricted by domain rules, continue locally
-  }
-
-  return {
+  const result: GoogleAuthResult = {
     uid: rawUser.uid,
     email: rawUser.email,
     displayName,
     photoURL: rawUser.photoURL,
     username,
     name: displayName,
-    avatar: rawUser.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`,
+    avatar,
     bio,
     role,
     isOwner,
   };
+
+  // Background non-blocking sync to Firestore
+  try {
+    const userDocRef = doc(db, 'users', rawUser.uid);
+    setDoc(userDocRef, {
+      uid: rawUser.uid,
+      username,
+      name: displayName,
+      email: rawUser.email || '',
+      avatar,
+      bio,
+      role,
+      isOwner,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true }).catch(() => {});
+  } catch {
+    // ignore
+  }
+
+  return result;
 }
 
 export { fbSignOut, onAuthStateChanged, type FirebaseUser };
