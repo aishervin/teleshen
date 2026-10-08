@@ -8,6 +8,7 @@ import {
   Trash2,
   AlertCircle
 } from 'lucide-react';
+import { signInWithGoogle } from '../../services/firebase';
 
 interface WelcomeAuthScreenProps {
   onLogin: (username: string, password?: string) => Promise<void>;
@@ -130,34 +131,28 @@ export const WelcomeAuthScreen: React.FC<WelcomeAuthScreenProps> = ({
     }
   };
 
-  // Google Sign-In Handler
+  // Real Google Sign-In with Official Google OAuth Popup
   const handleGoogleSignIn = async () => {
     setError(null);
     setLoading(true);
     try {
-      // Prompt user or use default Google identity
-      const defaultEmail = 'shervin00325@gmail.com';
-      const googleUser = prompt('ورود با حساب گوگل:\nایمیل یا نام خود را تایید کنید:', defaultEmail);
-      if (!googleUser) {
-        setLoading(false);
-        return;
-      }
-
-      const emailPart = googleUser.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').toLowerCase() || 'google_user';
-      const cleanUser = emailPart.length >= 3 ? emailPart : `${emailPart}_user`;
-      const name = googleUser.includes('@') ? googleUser.split('@')[0] : googleUser;
-      const avatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUser}`;
-
+      const googleUser = await signInWithGoogle();
+      
       await onRegister(
-        cleanUser,
-        'google_oauth_pass',
-        name,
-        avatar,
-        `Google Verified User (${googleUser})`
+        googleUser.username,
+        `google_auth_${googleUser.uid}`,
+        googleUser.displayName || googleUser.username,
+        googleUser.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${googleUser.username}`,
+        googleUser.email ? `کاربر تایید شده گوگل (${googleUser.email})` : 'کاربر تایید شده گوگل'
       );
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'ورود با گوگل ناموفق بود.';
-      setError(msg);
+      const msg = err instanceof Error ? err.message : 'ورود با گوگل انجام نشد.';
+      // Friendly message if user closed popup
+      if (msg.includes('popup-closed-by-user')) {
+        setError('پنجره ورود گوگل توسط کاربر بسته شد.');
+      } else {
+        setError(`ورود با گوگل ناموفق بود: ${msg}`);
+      }
     } finally {
       setLoading(false);
     }

@@ -19,6 +19,16 @@
       "isOnline": true,
       "lastSeen": "online",
       "createdAt": "2026-10-08T10:24:37.814Z"
+    },
+    "user_1791459990611_x8jn": {
+      "id": "user_1791459990611_x8jn",
+      "username": "test_local_sync",
+      "name": "Local Test",
+      "avatar": "https://api.dicebear.com/7.x/identicon/svg?seed=test_local_sync",
+      "bio": "TELESHΞN™ Member",
+      "isOnline": true,
+      "lastSeen": "online",
+      "createdAt": "2026-10-08T11:46:30.611Z"
     }
   },
   "chats": {
