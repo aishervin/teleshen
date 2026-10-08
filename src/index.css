@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --tg-bg: #0e1621;
+    --tg-sidebar-bg: #17212b;
+    --tg-header-bg: #17212b;
+    --tg-hover-bg: #202b36;
+    --tg-active-bg: #2b5278;
+    --tg-bubble-in: #182533;
+    --tg-bubble-out: #2b5278;
+    --tg-accent: #2aabee;
+    --tg-text: #f5f5f5;
+    --tg-text-muted: #7f91a4;
+    --tg-border: #242f3d;
+  }
+
+  [data-theme="midnight"] {
+    --tg-bg: #000000;
+    --tg-sidebar-bg: #0b0e14;
+    --tg-header-bg: #0b0e14;
+    --tg-hover-bg: #161b22;
+    --tg-active-bg: #1f3a5f;
+    --tg-bubble-in: #12161f;
+    --tg-bubble-out: #1d4068;
+    --tg-accent: #38bdf8;
+    --tg-text: #f8fafc;
+    --tg-text-muted: #64748b;
+    --tg-border: #1e293b;
+  }
+
+  [data-theme="emerald"] {
+    --tg-bg: #061412;
+    --tg-sidebar-bg: #0a1f1c;
+    --tg-header-bg: #0a1f1c;
+    --tg-hover-bg: #122b27;
+    --tg-active-bg: #0d4a3e;
+    --tg-bubble-in: #0d2723;
+    --tg-bubble-out: #10594a;
+    --tg-accent: #10b981;
+    --tg-text: #f0fdf4;
+    --tg-text-muted: #6ee7b7;
+    --tg-border: #134e4a;
+  }
+
+  [data-theme="cyber"] {
+    --tg-bg: #0d091a;
+    --tg-sidebar-bg: #150f2b;
+    --tg-header-bg: #150f2b;
+    --tg-hover-bg: #221845;
+    --tg-active-bg: #4c1d95;
+    --tg-bubble-in: #1e143d;
+    --tg-bubble-out: #5b21b6;
+    --tg-accent: #a855f7;
+    --tg-text: #faf5ff;
+    --tg-text-muted: #c084fc;
+    --tg-border: #3b2064;
+  }
+
+  [data-theme="light"] {
+    --tg-bg: #f0f2f5;
+    --tg-sidebar-bg: #ffffff;
+    --tg-header-bg: #ffffff;
+    --tg-hover-bg: #f4f4f5;
+    --tg-active-bg: #e0f2fe;
+    --tg-bubble-in: #ffffff;
+    --tg-bubble-out: #e3f2fd;
+    --tg-accent: #2481cc;
+    --tg-text: #0f172a;
+    --tg-text-muted: #64748b;
+    --tg-border: #e2e8f0;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+}
+
+/* Telegram Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Telegram Pattern Backdrop */
+.tg-wallpaper {
+  background-color: var(--tg-bg);
+  background-image: 
+    radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    radial-gradient(rgba(42, 171, 238, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: 0 0, 16px 16px;
+}
+
+/* Message Bubble Tail */
+.bubble-in {
+  border-bottom-left-radius: 4px !important;
+}
+.bubble-out {
+  border-bottom-right-radius: 4px !important;
+}
+
+/* Pulsing audio wave animation */
+@keyframes wavePulse {
+  0%, 100% { height: 6px; }
+  50% { height: 22px; }
+}
+
+.animate-waveform {
+  animation: wavePulse 1.2s ease-in-out infinite;
+}
