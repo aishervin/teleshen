@@ -41,46 +41,141 @@ export interface MessageDTO {
   isOutgoing?: boolean;
 }
 
+const STORAGE_USERS_KEY = 'teleshen_registered_directory_v5';
+
 class ApiClient {
   private eventSource: EventSource | null = null;
 
-  async login(username: string, password?: string): Promise<UserDTO> {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'نام کاربری یا رمز عبور اشتباه است.');
+  private getLocalUsers(): Record<string, { user: UserDTO; password?: string }> {
+    try {
+      const saved = localStorage.getItem(STORAGE_USERS_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
     }
-    const data = await res.json();
-    return data.user;
+  }
+
+  private saveLocalUser(user: UserDTO, password?: string) {
+    try {
+      const users = this.getLocalUsers();
+      users[user.username.toLowerCase()] = { user, password };
+      localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
+    } catch {
+      // ignore
+    }
+  }
+
+  private getLocalUser(username: string): UserDTO | null {
+    const users = this.getLocalUsers();
+    const item = users[username.toLowerCase()];
+    return item ? item.user : null;
+  }
+
+  async login(username: string, password?: string): Promise<UserDTO> {
+    const cleanUser = username.trim().toLowerCase().replace(/^@/, '');
+    
+    // 1. Try backend API
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: cleanUser, password }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          this.saveLocalUser(data.user, password);
+          return data.user;
+        }
+      } else {
+        const err = await res.json().catch(() => null);
+        if (err?.error && !err.error.includes('Cannot') && !err.error.includes('404')) {
+          throw new Error(err.error);
+        }
+      }
+    } catch (e: unknown) {
+      if (e instanceof Error && !e.message.includes('fetch') && !e.message.includes('404')) {
+        throw e;
+      }
+    }
+
+    // 2. Fallback to local storage on edge static pages
+    const existing = this.getLocalUser(cleanUser);
+    if (existing) {
+      existing.isOnline = true;
+      existing.lastSeen = 'online';
+      this.saveLocalUser(existing, password);
+      return existing;
+    }
+
+    throw new Error('کاربری با این مشخصات یافت نشد. لطفاً در تب ثبت‌نام، حساب کاربری جدید ایجاد کنید.');
   }
 
   async register(username: string, password: string, name: string, avatar: string, bio?: string): Promise<UserDTO> {
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, name, avatar, bio }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'ثبت‌نام ناموفق بود.');
+    const cleanUser = username.trim().toLowerCase().replace(/^@/, '');
+
+    // 1. Try backend API
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: cleanUser, password, name, avatar, bio }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          this.saveLocalUser(data.user, password);
+          return data.user;
+        }
+      } else {
+        const err = await res.json().catch(() => null);
+        if (err?.error && !err.error.includes('Cannot') && !err.error.includes('404')) {
+          throw new Error(err.error);
+        }
+      }
+    } catch (e: unknown) {
+      if (e instanceof Error && !e.message.includes('fetch') && !e.message.includes('404')) {
+        throw e;
+      }
     }
-    const data = await res.json();
-    return data.user;
+
+    // 2. Fallback to local persistent storage for static edge
+    const localUser: UserDTO = {
+      id: `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      username: cleanUser,
+      name: name.trim() || cleanUser,
+      avatar: avatar || `https://api.dicebear.com/7.x/identicon/svg?seed=${cleanUser}`,
+      bio: bio?.trim() || 'TELESHΞN™ Member',
+      isOnline: true,
+      lastSeen: 'online',
+    };
+
+    this.saveLocalUser(localUser, password);
+    return localUser;
   }
 
   async getAllUsers(): Promise<UserDTO[]> {
+    let remoteUsers: UserDTO[] = [];
     try {
       const res = await fetch('/api/users');
-      if (!res.ok) return [];
-      const data = await res.json();
-      return data.users || [];
+      if (res.ok) {
+        const data = await res.json();
+        remoteUsers = data.users || [];
+      }
     } catch {
-      return [];
+      // ignore
     }
+
+    const localMap = this.getLocalUsers();
+    const localUsers = Object.values(localMap).map(i => i.user);
+
+    const combined = [...remoteUsers];
+    for (const u of localUsers) {
+      if (!combined.some(c => c.username.toLowerCase() === u.username.toLowerCase())) {
+        combined.push(u);
+      }
+    }
+    return combined;
   }
 
   async getChats(userId: string): Promise<ChatDTO[]> {
