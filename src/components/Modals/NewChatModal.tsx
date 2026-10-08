@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Users, Radio, Check } from 'lucide-react';
+import { X, Users, Megaphone, Check } from 'lucide-react';
 import { ChatType } from '../../types/telegram';
 import { UserDTO } from '../../services/apiClient';
 
@@ -49,76 +49,86 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
 
       <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-2xl z-10 max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-150">
         <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
-          <div className="font-semibold text-slate-100 text-sm">Create New Conversation</div>
+          <div className="font-semibold text-slate-100 text-sm">
+            {type === 'channel' ? 'ایجاد کانال جدید' : 'ایجاد گروه جدید'}
+          </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center"
+            className="w-7 h-7 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col space-y-3.5 text-xs overflow-y-auto">
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col space-y-4 text-xs overflow-y-auto">
           {/* Type Selector */}
           <div>
-            <label className="block text-slate-400 mb-1.5 font-medium">Type</label>
+            <label className="block text-slate-400 mb-1.5 font-medium text-right">نوع گفتگو</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setType('group')}
-                className={`p-2.5 rounded-2xl border text-left flex items-center gap-2.5 transition-colors ${
+                className={`p-3 rounded-2xl border text-right flex flex-col gap-1 transition-all ${
                   type === 'group'
                     ? 'border-sky-400 bg-sky-500/10 text-sky-300 font-semibold'
                     : 'border-slate-800 bg-slate-800/40 text-slate-400 hover:text-white'
                 }`}
               >
-                <Users className="w-4 h-4 shrink-0" />
-                <span>New Group</span>
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 shrink-0 text-sky-400" />
+                  <span className="font-bold">گروه (Group)</span>
+                </div>
+                <span className="text-[10px] text-slate-400">گفتگوی همگانی (همه پیام می‌فرستند)</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setType('channel')}
-                className={`p-2.5 rounded-2xl border text-left flex items-center gap-2.5 transition-colors ${
+                className={`p-3 rounded-2xl border text-right flex flex-col gap-1 transition-all ${
                   type === 'channel'
                     ? 'border-sky-400 bg-sky-500/10 text-sky-300 font-semibold'
                     : 'border-slate-800 bg-slate-800/40 text-slate-400 hover:text-white'
                 }`}
               >
-                <Radio className="w-4 h-4 shrink-0" />
-                <span>New Channel</span>
+                <div className="flex items-center gap-2">
+                  <Megaphone className="w-4 h-4 shrink-0 text-amber-400" />
+                  <span className="font-bold">کانال (Channel)</span>
+                </div>
+                <span className="text-[10px] text-slate-400">یک‌طرفه (فقط مدیر می‌تواند پست بگذارد)</span>
               </button>
             </div>
           </div>
 
           <div>
-            <label className="block text-slate-400 mb-1 font-medium">Title / Name</label>
+            <label className="block text-slate-400 mb-1 font-medium text-right">
+              {type === 'channel' ? 'نام کانال' : 'نام گروه'}
+            </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Core Team or Announcements"
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white outline-none focus:border-sky-500"
+              placeholder={type === 'channel' ? 'مثال: اخبار و اطلاعیه‌ها' : 'مثال: گفتگوی همکاران'}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white outline-none focus:border-sky-500 text-xs text-right"
               required
             />
           </div>
 
           <div>
-            <label className="block text-slate-400 mb-1 font-medium">Description (Optional)</label>
+            <label className="block text-slate-400 mb-1 font-medium text-right">توضیحات (اختیاری)</label>
             <input
               type="text"
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              placeholder="About this group or channel"
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white outline-none focus:border-sky-500"
+              placeholder="درباره این گفتگو..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white outline-none focus:border-sky-500 text-xs text-right"
             />
           </div>
 
           {/* Members list if creating group */}
           {type === 'group' && otherUsers.length > 0 && (
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Select Members</label>
-              <div className="max-h-36 overflow-y-auto divide-y divide-slate-800/40 border border-slate-800 rounded-xl p-1 bg-slate-850">
+              <label className="block text-slate-400 mb-1 font-medium text-right">انتخاب اعضای اولیه</label>
+              <div className="max-h-36 overflow-y-auto divide-y divide-slate-800/40 border border-slate-800 rounded-xl p-1 bg-slate-800/40">
                 {otherUsers.map((u) => {
                   const isChecked = selectedUserIds.includes(u.id);
                   return (
@@ -129,9 +139,9 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
                     >
                       <div className="flex items-center gap-2">
                         <img src={u.avatar} alt={u.name} className="w-7 h-7 rounded-full object-cover" />
-                        <div>
+                        <div className="text-right">
                           <div className="text-white text-xs font-medium">{u.name}</div>
-                          <div className="text-sky-400 text-[10px]">@{u.username}</div>
+                          <div className="text-sky-400 text-[10px] font-mono">@{u.username}</div>
                         </div>
                       </div>
                       <div className={`w-4 h-4 rounded border flex items-center justify-center ${
@@ -146,22 +156,12 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
             </div>
           )}
 
-          <div className="pt-2 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-slate-400 hover:text-white rounded-xl transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-white font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
-            >
-              <Check className="w-4 h-4" />
-              <span>Create</span>
-            </button>
-          </div>
+          <button
+            type="submit"
+            className="w-full py-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl text-xs transition-colors mt-2"
+          >
+            {type === 'channel' ? 'ایجاد کانال' : 'ایجاد گروه'}
+          </button>
         </form>
       </div>
     </div>

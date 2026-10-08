@@ -67,13 +67,14 @@ export interface Chat {
   typingUser?: string;
   draft?: string;
   bio?: string;
+  creatorId?: string;
+  adminIds?: string[];
 }
 
 export interface CurrentUser {
   id: string;
   name: string;
   handle: string;
-  phone: string;
   bio: string;
   avatar: string;
   isPremium: boolean;

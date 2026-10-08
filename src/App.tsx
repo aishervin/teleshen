@@ -186,6 +186,8 @@ export default function App() {
             {/* Message Composer */}
             <MessageComposer
               chatId={activeChat.id}
+              chat={activeChat}
+              currentUser={currentUser}
               isBot={activeChat.type === 'bot'}
               replyMessage={replyMessage}
               onCancelReply={() => setReplyMessage(null)}

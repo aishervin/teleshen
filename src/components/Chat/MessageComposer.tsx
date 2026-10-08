@@ -9,12 +9,16 @@ import {
   Image as ImageIcon, 
   FileText,
   Square,
-  Bot
+  Bot,
+  Megaphone,
+  BellOff
 } from 'lucide-react';
-import { Message } from '../../types/telegram';
+import { Message, Chat, CurrentUser } from '../../types/telegram';
 
 interface MessageComposerProps {
   chatId: string;
+  chat?: Chat;
+  currentUser?: CurrentUser;
   isBot?: boolean;
   replyMessage: Message | null;
   onCancelReply: () => void;
@@ -25,6 +29,8 @@ interface MessageComposerProps {
 
 export const MessageComposer: React.FC<MessageComposerProps> = ({
   chatId,
+  chat,
+  currentUser,
   isBot = false,
   replyMessage,
   onCancelReply,
@@ -59,6 +65,24 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
       if (recordTimerRef.current) clearInterval(recordTimerRef.current);
     };
   }, [isRecording]);
+
+  // Channel Permission Guard
+  const isChannel = chat?.type === 'channel';
+  const isChannelAdmin = Boolean(
+    currentUser?.isOwner || 
+    currentUser?.role === 'owner' ||
+    (chat?.creatorId && chat.creatorId === currentUser?.id) ||
+    (chat?.adminIds && currentUser?.id && chat.adminIds.includes(currentUser.id))
+  );
+
+  if (isChannel && !isChannelAdmin) {
+    return (
+      <div className="bg-slate-900/90 border-t border-slate-800 p-3.5 text-center text-xs text-slate-400 flex items-center justify-center gap-2 select-none animate-in fade-in">
+        <Megaphone className="w-4 h-4 text-sky-400 shrink-0" />
+        <span className="font-medium text-slate-300">تنها مدیران کانال می‌توانند پیام ارسال کنند (کانال اطلاعیه‌ها)</span>
+      </div>
+    );
+  }
 
   const handleSend = () => {
     if (text.trim()) {

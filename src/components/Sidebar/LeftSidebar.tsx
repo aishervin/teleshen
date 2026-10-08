@@ -31,9 +31,11 @@ interface LeftSidebarProps {
 }
 
 const FOLDERS: { id: FolderCategory; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'personal', label: 'Direct' },
-  { id: 'bots', label: 'Bots' },
+  { id: 'all', label: 'همه' },
+  { id: 'personal', label: 'دایرکت' },
+  { id: 'groups', label: 'گروه‌ها' },
+  { id: 'channels', label: 'کانال‌ها' },
+  { id: 'bots', label: 'ربات‌ها' },
 ];
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({
@@ -52,7 +54,11 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   // Filter by folder
   let filtered = chats.filter(c => {
     if (activeFolder === 'all') return true;
-    return c.categories.includes(activeFolder);
+    if (activeFolder === 'channels') return c.type === 'channel' || (c.categories && c.categories.includes('channels'));
+    if (activeFolder === 'groups') return c.type === 'group' || (c.categories && c.categories.includes('groups'));
+    if (activeFolder === 'personal') return c.type === 'user' || c.type === 'saved' || (c.categories && c.categories.includes('personal'));
+    if (activeFolder === 'bots') return c.type === 'bot' || (c.categories && c.categories.includes('bots'));
+    return c.categories && c.categories.includes(activeFolder);
   });
 
   // Filter by search query

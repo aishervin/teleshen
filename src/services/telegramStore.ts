@@ -80,7 +80,6 @@ export function useTelegramStore() {
       id: `user_${userObj.username}`,
       name: userObj.name,
       handle: `@${userObj.username}`,
-      phone: '+98 912 345 6789',
       bio: userObj.bio,
       avatar: userObj.avatar,
       isPremium: true,
@@ -123,7 +122,6 @@ export function useTelegramStore() {
             id: `user_${googleUser.username}`,
             name: googleUser.name,
             handle: `@${googleUser.username}`,
-            phone: '+98 912 345 6789',
             bio: googleUser.bio,
             avatar: googleUser.avatar,
             isPremium: true,
@@ -315,7 +313,6 @@ export function useTelegramStore() {
       id: user.id,
       name: user.name,
       handle: `@${user.username}`,
-      phone: '+98 912 345 6789',
       bio: user.bio || '',
       avatar: user.avatar,
       isPremium: true,
@@ -335,7 +332,6 @@ export function useTelegramStore() {
       id: user.id,
       name: user.name,
       handle: `@${user.username}`,
-      phone: '+98 912 345 6789',
       bio: user.bio || '',
       avatar: user.avatar,
       isPremium: true,
@@ -459,6 +455,8 @@ export function useTelegramStore() {
         title: chat.title,
         avatar: chat.avatar,
         type: chat.type,
+        creatorId: currentUser.id,
+        adminIds: [currentUser.id],
         unreadCount: 0,
         categories: ['all', type === 'channel' ? 'channels' : 'groups'],
         memberCount: (memberIds.length || 0) + 1,
@@ -473,8 +471,12 @@ export function useTelegramStore() {
       const newChatObj: Chat = {
         id,
         title,
-        avatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150&auto=format&fit=crop&q=80',
+        avatar: type === 'channel' 
+          ? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80'
+          : 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150&auto=format&fit=crop&q=80',
         type: type === 'channel' ? 'channel' : 'group',
+        creatorId: currentUser.id,
+        adminIds: [currentUser.id],
         unreadCount: 0,
         categories: ['all', type === 'channel' ? 'channels' : 'groups'],
         memberCount: memberIds.length + 1,
@@ -690,7 +692,16 @@ export function useTelegramStore() {
   }, []);
 
   const updateProfile = useCallback((updated: Partial<CurrentUser>) => {
-    setCurrentUser(prev => prev ? ({ ...prev, ...updated }) : null);
+    setCurrentUser(prev => {
+      if (!prev) return null;
+      const nextUser = { ...prev, ...updated };
+      try {
+        localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(nextUser));
+      } catch {
+        // ignore
+      }
+      return nextUser;
+    });
   }, []);
 
   return {
