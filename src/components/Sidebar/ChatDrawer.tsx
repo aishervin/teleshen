@@ -8,7 +8,8 @@ import {
   MessageCircle,
   ShieldCheck,
   Users,
-  UserCheck
+  UserCheck,
+  LogOut
 } from 'lucide-react';
 import { CurrentUser, ThemeType } from '../../types/telegram';
 
@@ -23,6 +24,7 @@ interface ChatDrawerProps {
   onSelectSavedMessages: () => void;
   onSelectSupport: () => void;
   onToggleTheme: () => void;
+  onLogout: () => void;
 }
 
 export const ChatDrawer: React.FC<ChatDrawerProps> = ({
@@ -36,6 +38,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   onSelectSavedMessages,
   onSelectSupport,
   onToggleTheme,
+  onLogout,
 }) => {
   if (!isOpen) return null;
 
@@ -160,6 +163,18 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
               <span className="text-[11px] font-mono text-slate-400 capitalize">
                 {theme}
               </span>
+            </button>
+
+            {/* Log Out */}
+            <button
+              onClick={() => {
+                onLogout();
+                onClose();
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red-500/10 text-red-400 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>خروج از حساب (Log Out)</span>
             </button>
           </div>
         </div>

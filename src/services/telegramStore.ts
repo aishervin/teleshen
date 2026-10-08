@@ -21,10 +21,10 @@ export type ConnectionState = 'connecting' | 'updating' | 'connected';
 export function useTelegramStore() {
   const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
 
-  // Currently logged-in user
-  const [currentUser, setCurrentUser] = useState<CurrentUser>(() => {
+  // Currently logged-in user (null = show Welcome Auth Screen)
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_USER);
-    return saved ? JSON.parse(saved) : CURRENT_USER;
+    return saved ? JSON.parse(saved) : null;
   });
 
   // Directory of all users registered on the platform
@@ -131,11 +131,11 @@ export function useTelegramStore() {
           if (list.some(m => m.id === msg.id)) return prev;
           const formatted: Message = {
             ...msg,
-            isOutgoing: msg.senderId === currentUser.id,
+            isOutgoing: currentUser ? msg.senderId === currentUser.id : false,
             reactions: (msg.reactions || []).map(r => ({
               emoji: r.emoji,
               count: r.count,
-              hasReacted: Array.isArray(r.users) ? r.users.includes(currentUser.id) : false,
+              hasReacted: currentUser && Array.isArray(r.users) ? r.users.includes(currentUser.id) : false,
             })),
           };
           return {
@@ -144,7 +144,7 @@ export function useTelegramStore() {
           };
         });
 
-        if (msg.senderId !== currentUser.id) {
+        if (currentUser && msg.senderId !== currentUser.id) {
           soundEngine.playReceive();
         }
       },
@@ -178,7 +178,7 @@ export function useTelegramStore() {
               reactions: reactions.map(r => ({
                 emoji: r.emoji,
                 count: r.count,
-                hasReacted: r.users.includes(currentUser.id),
+                hasReacted: currentUser ? r.users.includes(currentUser.id) : false,
               }))
             } : m),
           };
@@ -200,7 +200,11 @@ export function useTelegramStore() {
 
   // Persist current session
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
+    if (currentUser) {
+      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem(STORAGE_KEY_USER);
+    }
   }, [currentUser]);
 
   // Call duration counter
@@ -245,6 +249,7 @@ export function useTelegramStore() {
 
   // Start 1-on-1 Direct Chat with any registered user
   const startDirectChat = useCallback(async (targetUsername: string) => {
+    if (!currentUser) return;
     const cleanTarget = targetUsername.trim().toLowerCase().replace(/^@/, '');
     
     // Check if target is support
@@ -293,10 +298,11 @@ export function useTelegramStore() {
       setChats(prev => [newChatObj, ...prev]);
       selectChat(localId);
     }
-  }, [currentUser.id, selectChat]);
+  }, [currentUser, selectChat]);
 
   // Create group or channel with members
   const createGroupChat = useCallback(async (title: string, type: ChatType, memberIds: string[], bio?: string) => {
+    if (!currentUser) return;
     try {
       const chat = await apiClient.createGroupChat(
         currentUser.id,
@@ -335,10 +341,11 @@ export function useTelegramStore() {
       setChats(prev => [newChatObj, ...prev]);
       selectChat(id);
     }
-  }, [currentUser.id, selectChat]);
+  }, [currentUser, selectChat]);
 
   // Send Message
   const sendMessage = useCallback(async (content: string, type: Message['type'] = 'text', extra?: Partial<Message>) => {
+    if (!currentUser) return;
     if (!content.trim() && type === 'text') return;
 
     const tempId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -439,6 +446,7 @@ export function useTelegramStore() {
   }, [sendMessage]);
 
   const toggleReaction = useCallback((messageId: string, emoji: string) => {
+    if (!currentUser) return;
     setMessages(prev => {
       const chatMsgs = prev[activeChatId] || [];
       const updated = chatMsgs.map(msg => {
@@ -468,7 +476,7 @@ export function useTelegramStore() {
 
     // Notify backend
     apiClient.toggleReaction(activeChatId, messageId, currentUser.id, emoji);
-  }, [activeChatId, currentUser.id]);
+  }, [activeChatId, currentUser]);
 
   const pinMessage = useCallback((message: Message) => {
     setMessages(prev => {
@@ -534,8 +542,13 @@ export function useTelegramStore() {
     }, 400);
   }, []);
 
+  const logout = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY_USER);
+    setCurrentUser(null);
+  }, []);
+
   const updateProfile = useCallback((updated: Partial<CurrentUser>) => {
-    setCurrentUser(prev => ({ ...prev, ...updated }));
+    setCurrentUser(prev => prev ? ({ ...prev, ...updated }) : null);
   }, []);
 
   return {
@@ -572,6 +585,7 @@ export function useTelegramStore() {
     setCallState,
     selectChat,
     login,
+    logout,
     startDirectChat,
     createGroupChat,
     sendMessage,

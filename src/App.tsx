@@ -13,6 +13,7 @@ import { StickerPickerModal } from './components/Modals/StickerPickerModal';
 import { NewChatModal } from './components/Modals/NewChatModal';
 import { AuthModal } from './components/Modals/AuthModal';
 import { UserDirectoryModal } from './components/Modals/UserDirectoryModal';
+import { WelcomeAuthScreen } from './components/Auth/WelcomeAuthScreen';
 import { Search, X } from 'lucide-react';
 
 export default function App() {
@@ -49,6 +50,7 @@ export default function App() {
     setReplyMessage,
     selectChat,
     login,
+    logout,
     startDirectChat,
     createGroupChat,
     sendMessage,
@@ -67,6 +69,10 @@ export default function App() {
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   const [inChatSearchOpen, setInChatSearchOpen] = useState(false);
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
+
+  if (!currentUser) {
+    return <WelcomeAuthScreen onLogin={login} />;
+  }
 
   const handleSelectChatMobile = (chatId: string) => {
     selectChat(chatId);
@@ -209,6 +215,7 @@ export default function App() {
           setIsMobileChatOpen(true);
         }}
         onToggleTheme={handleToggleTheme}
+        onLogout={logout}
       />
 
       {/* 4. Settings Modal */}
