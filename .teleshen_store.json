@@ -1,0 +1,87 @@
+{
+  "users": {
+    "user_shervini": {
+      "id": "user_shervini",
+      "username": "shervini",
+      "name": "SHΞЯVIN™",
+      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+      "bio": "TELESHΞN™ Creator",
+      "isOnline": true,
+      "lastSeen": "online",
+      "createdAt": "2026-10-08T10:24:37.814Z"
+    },
+    "bot_shen_zero": {
+      "id": "bot_shen_zero",
+      "username": "shen_zero_bot",
+      "name": "®️SHΞN™ᴢᴇʀᴏ",
+      "avatar": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80",
+      "bio": "Resident AI Assistant for TELESHΞN™",
+      "isOnline": true,
+      "lastSeen": "online",
+      "createdAt": "2026-10-08T10:24:37.814Z"
+    }
+  },
+  "chats": {
+    "chat_assistant": {
+      "id": "chat_assistant",
+      "title": "®️SHΞN™ᴢᴇʀᴏ",
+      "avatar": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80",
+      "type": "bot",
+      "memberIds": [
+        "bot_shen_zero"
+      ],
+      "createdBy": "system",
+      "isPinned": true,
+      "bio": "دستیار رسمی و هوشمند مستقر در سامانه TELESHΞN™"
+    },
+    "chat_support": {
+      "id": "chat_support",
+      "title": "SHΞЯVIN™ Support",
+      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+      "type": "user",
+      "memberIds": [
+        "user_shervini"
+      ],
+      "createdBy": "system",
+      "isPinned": true,
+      "bio": "پشتیبانی رسمی TELESHΞN™ | ارتباط مستقیم با شروین (@shervini)"
+    }
+  },
+  "messages": {
+    "chat_assistant": [
+      {
+        "id": "msg_welcome_sz",
+        "chatId": "chat_assistant",
+        "senderId": "bot_shen_zero",
+        "senderName": "®️SHΞN™ᴢᴇʀᴏ",
+        "senderAvatar": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80",
+        "content": "درود! من دستیار اختصاصی ®️SHΞN™ᴢᴇʀᴏ هستم. اکانت شما روی سامانه ابری TELESHΞN™ فعال است و می‌توانید با سایر کاربران به طور زنده چت کنید.",
+        "timestamp": "10:00",
+        "status": "read",
+        "type": "text",
+        "reactions": [
+          {
+            "emoji": "🔥",
+            "count": 1,
+            "users": [
+              "bot_shen_zero"
+            ]
+          }
+        ]
+      }
+    ],
+    "chat_support": [
+      {
+        "id": "msg_welcome_supp",
+        "chatId": "chat_support",
+        "senderId": "user_shervini",
+        "senderName": "SHΞЯVIN™ Support",
+        "senderAvatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+        "content": "سلام! به بخش پشتیبانی مستقیم TELESHΞN™ خوش آمدید. هر سوال یا پیشنهادی دارید در اینجا با @shervini در میان بگذارید.",
+        "timestamp": "10:05",
+        "status": "read",
+        "type": "text"
+      }
+    ]
+  }
+}
