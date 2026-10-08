@@ -111,19 +111,47 @@ export function useTelegramStore() {
     }).catch(() => {});
   }, []);
 
-  // 1. Initial Connection Sequence & Backend Boot
+  // 1. Dedicated One-Time Auth Listener (Zero infinite loops)
   useEffect(() => {
-    let isMounted = true;
-
-    // Listen to Google / Firebase real-time auth completion
     const unsubscribeAuth = subscribeToAuth((googleUser) => {
-      if (googleUser && isMounted) {
-        googleLogin({
-          ...googleUser,
-          email: googleUser.email || undefined,
+      if (googleUser) {
+        setCurrentUser(prev => {
+          if (prev && prev.handle === `@${googleUser.username}`) {
+            return prev; // Already same user, no re-render
+          }
+          const updated: CurrentUser = {
+            id: `user_${googleUser.username}`,
+            name: googleUser.name,
+            handle: `@${googleUser.username}`,
+            phone: '+98 912 345 6789',
+            bio: googleUser.bio,
+            avatar: googleUser.avatar,
+            isPremium: true,
+            email: googleUser.email || undefined,
+            role: googleUser.role,
+            isOwner: googleUser.isOwner,
+          };
+          try {
+            localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(updated));
+          } catch {
+            // ignore
+          }
+          return updated;
         });
       }
     });
+
+    return () => {
+      unsubscribeAuth();
+    };
+  }, []);
+
+  // 2. Initial Connection Sequence & Backend Boot
+  const currentUserId = currentUser?.id;
+  const currentUserHandle = currentUser?.handle;
+
+  useEffect(() => {
+    let isMounted = true;
 
     async function initBackend() {
       try {
@@ -134,15 +162,15 @@ export function useTelegramStore() {
         }
 
         // Sync current session with backend
-        if (currentUser) {
+        if (currentUserHandle) {
           await apiClient.login(
-            currentUser.handle.replace(/^@/, '')
+            currentUserHandle.replace(/^@/, '')
           );
         }
 
         // Fetch backend chats
-        if (currentUser) {
-          const remoteChats = await apiClient.getChats(currentUser.id);
+        if (currentUserId) {
+          const remoteChats = await apiClient.getChats(currentUserId);
           if (isMounted && remoteChats.length > 0) {
             setChats(prev => {
               const merged = [...prev];
@@ -168,8 +196,7 @@ export function useTelegramStore() {
         // Silent offline fallback
       } finally {
         if (isMounted) {
-          setTimeout(() => setConnectionState('updating'), 800);
-          setTimeout(() => setConnectionState('connected'), 1600);
+          setConnectionState('connected');
         }
       }
     }
@@ -242,9 +269,8 @@ export function useTelegramStore() {
     return () => {
       isMounted = false;
       unsubscribe();
-      unsubscribeAuth();
     };
-  }, [currentUser, googleLogin]);
+  }, [currentUserId, currentUserHandle]);
 
   // Apply theme to DOM
   useEffect(() => {
