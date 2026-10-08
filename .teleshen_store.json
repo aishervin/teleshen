@@ -82,6 +82,20 @@
         "status": "read",
         "type": "text"
       }
+    ],
+    "shervini-support": [
+      {
+        "id": "msg_1791455668382_aj3b",
+        "chatId": "shervini-support",
+        "senderId": "user_shervin",
+        "senderName": "User",
+        "content": "Shared an engineering schematic diagram",
+        "timestamp": "10:34 AM",
+        "status": "delivered",
+        "type": "photo",
+        "mediaUrl": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&auto=format&fit=crop&q=80",
+        "reactions": []
+      }
     ]
   }
 }
