@@ -264,6 +264,88 @@ export function useTelegramStore() {
     setRegisteredUsers(freshUsers);
   }, []);
 
+  // Google Login handler
+  const googleLogin = useCallback(async (userObj: {
+    username: string;
+    name: string;
+    avatar: string;
+    bio: string;
+    email?: string;
+    role?: 'owner' | 'admin' | 'member';
+    isOwner?: boolean;
+  }) => {
+    const updated: CurrentUser = {
+      id: `user_${userObj.username}`,
+      name: userObj.name,
+      handle: `@${userObj.username}`,
+      phone: '+98 912 345 6789',
+      bio: userObj.bio,
+      avatar: userObj.avatar,
+      isPremium: true,
+      email: userObj.email,
+      role: userObj.role,
+      isOwner: userObj.isOwner,
+    };
+    setCurrentUser(updated);
+
+    try {
+      await apiClient.register(
+        userObj.username,
+        'google_auth',
+        userObj.name,
+        userObj.avatar,
+        userObj.bio
+      );
+    } catch {
+      // ignore
+    }
+
+    const freshUsers = await apiClient.getAllUsers();
+    setRegisteredUsers(freshUsers);
+  }, []);
+
+  // Owner Member Management Handlers
+  const deleteUser = useCallback((userId: string) => {
+    setRegisteredUsers(prev => prev.filter(u => u.id !== userId));
+  }, []);
+
+  const addUser = useCallback((username: string, name: string) => {
+    const cleanUser = username.toLowerCase().replace(/^@/, '');
+    const newUser: UserDTO = {
+      id: `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      username: cleanUser,
+      name,
+      avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${cleanUser}`,
+      isOnline: true,
+      lastSeen: 'online',
+    };
+    setRegisteredUsers(prev => [...prev, newUser]);
+  }, []);
+
+  const broadcastMessage = useCallback((text: string) => {
+    if (!currentUser) return;
+    const broadcastMsg: Message = {
+      id: `broadcast_${Date.now()}`,
+      chatId: 'general',
+      senderId: currentUser.id,
+      senderName: `📢 ${currentUser.name}`,
+      senderAvatar: currentUser.avatar,
+      content: text,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      status: 'delivered',
+      isOutgoing: true,
+      type: 'text',
+    };
+
+    setMessages(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(chatId => {
+        next[chatId] = [...(next[chatId] || []), { ...broadcastMsg, chatId }];
+      });
+      return next;
+    });
+  }, [currentUser]);
+
   // Start 1-on-1 Direct Chat with any registered user
   const startDirectChat = useCallback(async (targetUsername: string) => {
     if (!currentUser) return;
@@ -603,6 +685,10 @@ export function useTelegramStore() {
     selectChat,
     login,
     register,
+    googleLogin,
+    deleteUser,
+    addUser,
+    broadcastMessage,
     logout,
     startDirectChat,
     createGroupChat,

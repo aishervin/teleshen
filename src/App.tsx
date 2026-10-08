@@ -14,6 +14,7 @@ import { NewChatModal } from './components/Modals/NewChatModal';
 import { AuthModal } from './components/Modals/AuthModal';
 import { UserDirectoryModal } from './components/Modals/UserDirectoryModal';
 import { WelcomeAuthScreen } from './components/Auth/WelcomeAuthScreen';
+import { AdminManagementModal } from './components/Modals/AdminManagementModal';
 import { Search, X } from 'lucide-react';
 
 export default function App() {
@@ -51,6 +52,10 @@ export default function App() {
     selectChat,
     login,
     register,
+    googleLogin,
+    deleteUser,
+    addUser,
+    broadcastMessage,
     logout,
     startDirectChat,
     createGroupChat,
@@ -70,9 +75,15 @@ export default function App() {
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   const [inChatSearchOpen, setInChatSearchOpen] = useState(false);
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
 
   if (!currentUser) {
-    return <WelcomeAuthScreen onLogin={login} onRegister={register} />;
+    return (
+      <WelcomeAuthScreen 
+        onGoogleSuccess={googleLogin} 
+        onQuickLogin={async (u) => login(u, undefined)} 
+      />
+    );
   }
 
   const handleSelectChatMobile = (chatId: string) => {
@@ -217,6 +228,7 @@ export default function App() {
         }}
         onToggleTheme={handleToggleTheme}
         onLogout={logout}
+        onOpenAdminPanel={() => setIsAdminModalOpen(true)}
       />
 
       {/* 4. Settings Modal */}
@@ -280,6 +292,21 @@ export default function App() {
         currentUser={currentUser}
         onClose={() => setIsAuthModalOpen(false)}
         onLogin={login}
+      />
+
+      {/* 10. Owner & Admin Management Panel */}
+      <AdminManagementModal
+        isOpen={isAdminModalOpen}
+        currentUser={currentUser}
+        users={registeredUsers}
+        onClose={() => setIsAdminModalOpen(false)}
+        onDeleteUser={deleteUser}
+        onAddUser={addUser}
+        onBroadcastMessage={broadcastMessage}
+        onDirectChat={(targetUsername) => {
+          startDirectChat(targetUsername);
+          setIsMobileChatOpen(true);
+        }}
       />
     </div>
   );

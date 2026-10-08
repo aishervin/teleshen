@@ -9,7 +9,8 @@ import {
   ShieldCheck,
   Users,
   UserCheck,
-  LogOut
+  LogOut,
+  Crown
 } from 'lucide-react';
 import { CurrentUser, ThemeType } from '../../types/telegram';
 
@@ -25,6 +26,7 @@ interface ChatDrawerProps {
   onSelectSupport: () => void;
   onToggleTheme: () => void;
   onLogout: () => void;
+  onOpenAdminPanel?: () => void;
 }
 
 export const ChatDrawer: React.FC<ChatDrawerProps> = ({
@@ -39,6 +41,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   onSelectSupport,
   onToggleTheme,
   onLogout,
+  onOpenAdminPanel,
 }) => {
   if (!isOpen) return null;
 
@@ -87,6 +90,20 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
         {/* Drawer Menu Items */}
         <div className="flex-1 overflow-y-auto py-2 divide-y divide-slate-800/40 text-xs">
           <div className="px-2 space-y-0.5">
+            {/* Owner Management Panel */}
+            {(currentUser.isOwner || currentUser.role === 'owner' || currentUser.handle === '@shervin') && (
+              <button
+                onClick={() => {
+                  onOpenAdminPanel?.();
+                  onClose();
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-colors font-medium mb-1 text-right"
+              >
+                <Crown className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="flex-1 font-semibold">پنل مدیریت اعضا (Owner)</span>
+              </button>
+            )}
+
             {/* Active Users Directory */}
             <button
               onClick={() => {

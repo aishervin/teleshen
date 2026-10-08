@@ -8,6 +8,8 @@ export interface UserDTO {
   bio?: string;
   isOnline: boolean;
   lastSeen: string;
+  email?: string;
+  role?: 'owner' | 'admin' | 'member';
 }
 
 export interface ChatDTO {

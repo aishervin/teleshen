@@ -77,6 +77,9 @@ export interface CurrentUser {
   bio: string;
   avatar: string;
   isPremium: boolean;
+  email?: string;
+  role?: 'owner' | 'admin' | 'member';
+  isOwner?: boolean;
 }
 
 export type ThemeType = 'default' | 'midnight' | 'emerald' | 'cyber' | 'light';

@@ -25,6 +25,8 @@ export async function signInWithGoogle(): Promise<{
   displayName: string | null;
   photoURL: string | null;
   username: string;
+  role: 'owner' | 'member';
+  isOwner: boolean;
 }> {
   const result = await signInWithPopup(auth, googleProvider);
   const user = result.user;
@@ -34,32 +36,48 @@ export async function signInWithGoogle(): Promise<{
   rawName = rawName.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase();
   if (rawName.length < 3) rawName = `user_${rawName}`;
 
+  // Check if this is the system Owner
+  const isOwner = (user.email?.toLowerCase() === 'shervin00325@gmail.com');
+  let username = isOwner ? 'shervin' : rawName;
+  let displayName = isOwner ? 'TELESHΞN™ owner' : (user.displayName || username);
+  let role: 'owner' | 'member' = isOwner ? 'owner' : 'member';
+  let bio = isOwner ? '👑 Founder & Lead Operator @ TELESHΞN™' : 'Google Verified Member @ TELESHΞN™';
+
   // Check if profile already exists in Firestore
   const userDocRef = doc(db, 'users', user.uid);
   const existingDoc = await getDoc(userDocRef);
 
-  let username = rawName;
   if (existingDoc.exists()) {
-    username = existingDoc.data().username || rawName;
-  } else {
-    // Save new profile to Firestore
-    await setDoc(userDocRef, {
-      uid: user.uid,
-      username,
-      name: user.displayName || username,
-      email: user.email || '',
-      avatar: user.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`,
-      bio: 'Google Verified User @ TELESHΞN™',
-      createdAt: new Date().toISOString(),
-    }, { merge: true });
+    const data = existingDoc.data();
+    if (!isOwner) {
+      username = data.username || rawName;
+      displayName = data.name || displayName;
+      role = data.role || 'member';
+      bio = data.bio || bio;
+    }
   }
+
+  // Save/Update profile in Firestore
+  await setDoc(userDocRef, {
+    uid: user.uid,
+    username,
+    name: displayName,
+    email: user.email || '',
+    avatar: user.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`,
+    bio,
+    role,
+    isOwner,
+    updatedAt: new Date().toISOString(),
+  }, { merge: true });
 
   return {
     uid: user.uid,
     email: user.email,
-    displayName: user.displayName,
+    displayName,
     photoURL: user.photoURL,
     username,
+    role,
+    isOwner,
   };
 }
 
