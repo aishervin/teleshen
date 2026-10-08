@@ -50,6 +50,7 @@ export default function App() {
     setReplyMessage,
     selectChat,
     login,
+    register,
     logout,
     startDirectChat,
     createGroupChat,
@@ -71,7 +72,7 @@ export default function App() {
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
 
   if (!currentUser) {
-    return <WelcomeAuthScreen onLogin={login} />;
+    return <WelcomeAuthScreen onLogin={login} onRegister={register} />;
   }
 
   const handleSelectChatMobile = (chatId: string) => {

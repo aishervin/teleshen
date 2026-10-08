@@ -77,13 +77,10 @@ export function useTelegramStore() {
           setRegisteredUsers(users);
         }
 
-        // Sync or register current user with backend
+        // Sync current session with backend
         if (currentUser) {
           await apiClient.login(
-            currentUser.handle.replace(/^@/, ''),
-            currentUser.name,
-            currentUser.avatar,
-            currentUser.bio
+            currentUser.handle.replace(/^@/, '')
           );
         }
 
@@ -228,9 +225,29 @@ export function useTelegramStore() {
   }, []);
 
   // Login handler
-  const login = useCallback(async (username: string, name: string, avatar: string, bio: string) => {
+  const login = useCallback(async (username: string, password?: string) => {
     const cleanUsername = username.trim().toLowerCase().replace(/^@/, '');
-    const user = await apiClient.login(cleanUsername, name, avatar, bio);
+    const user = await apiClient.login(cleanUsername, password);
+    const updated: CurrentUser = {
+      id: user.id,
+      name: user.name,
+      handle: `@${user.username}`,
+      phone: '+98 912 345 6789',
+      bio: user.bio || '',
+      avatar: user.avatar,
+      isPremium: true,
+    };
+    setCurrentUser(updated);
+
+    // Refresh users directory
+    const freshUsers = await apiClient.getAllUsers();
+    setRegisteredUsers(freshUsers);
+  }, []);
+
+  // Register handler
+  const register = useCallback(async (username: string, password: string, name: string, avatar: string, bio: string) => {
+    const cleanUsername = username.trim().toLowerCase().replace(/^@/, '');
+    const user = await apiClient.register(cleanUsername, password, name, avatar, bio);
     const updated: CurrentUser = {
       id: user.id,
       name: user.name,
@@ -585,6 +602,7 @@ export function useTelegramStore() {
     setCallState,
     selectChat,
     login,
+    register,
     logout,
     startDirectChat,
     createGroupChat,

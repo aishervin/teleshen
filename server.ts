@@ -193,11 +193,52 @@ app.get('/api/events', (req: Request, res: Response) => {
   });
 });
 
-// 1. Register or Login
-app.post('/api/auth/login', (req: Request, res: Response) => {
-  const { username, name, avatar, bio } = req.body;
+// 1. User Registration (Sign Up)
+app.post('/api/auth/register', (req: Request, res: Response) => {
+  const { username, password, name, avatar, bio } = req.body;
   if (!username) {
-    res.status(400).json({ error: 'Username is required' });
+    res.status(400).json({ error: 'نام کاربری الزامی است.' });
+    return;
+  }
+  if (!password || password.length < 4) {
+    res.status(400).json({ error: 'رمز عبور باید حداقل ۴ نویسه باشد.' });
+    return;
+  }
+
+  const cleanUsername = username.trim().toLowerCase().replace(/^@/, '');
+  
+  // Check if username already exists
+  const existing = Object.values(store.users).find(u => u.username.toLowerCase() === cleanUsername);
+  if (existing) {
+    res.status(400).json({ error: 'این نام کاربری قبلاً ثبت شده است. لطفاً وارد شوید یا نام دیگری برگزینید.' });
+    return;
+  }
+
+  // Create new user record
+  const id = `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const user: UserRecord = {
+    id,
+    username: cleanUsername,
+    name: name?.trim() || cleanUsername,
+    avatar: avatar || `https://api.dicebear.com/7.x/identicon/svg?seed=${cleanUsername}`,
+    bio: bio?.trim() || 'TELESHΞN™ Member',
+    isOnline: true,
+    lastSeen: 'online',
+    createdAt: new Date().toISOString(),
+  };
+
+  store.users[id] = user;
+  persistStore();
+
+  broadcastSSE('user_joined', user);
+  res.json({ user });
+});
+
+// 2. User Authentication (Sign In)
+app.post('/api/auth/login', (req: Request, res: Response) => {
+  const { username, password } = req.body;
+  if (!username) {
+    res.status(400).json({ error: 'نام کاربری الزامی است.' });
     return;
   }
 
@@ -207,30 +248,13 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
   let user = Object.values(store.users).find(u => u.username.toLowerCase() === cleanUsername);
 
   if (!user) {
-    // Create new user record
-    const id = `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    user = {
-      id,
-      username: cleanUsername,
-      name: name?.trim() || cleanUsername,
-      avatar: avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`,
-      bio: bio?.trim() || 'TELESHΞN™ User',
-      isOnline: true,
-      lastSeen: 'online',
-      createdAt: new Date().toISOString(),
-    };
-    store.users[id] = user;
-    persistStore();
-
-    broadcastSSE('user_joined', user);
-  } else {
-    user.isOnline = true;
-    user.lastSeen = 'online';
-    if (name) user.name = name.trim();
-    if (avatar) user.avatar = avatar;
-    if (bio) user.bio = bio.trim();
-    persistStore();
+    res.status(404).json({ error: 'کاربری با این نام کاربری یافت نشد. لطفاً ابتدا ثبت‌نام کنید.' });
+    return;
   }
+
+  user.isOnline = true;
+  user.lastSeen = 'online';
+  persistStore();
 
   res.json({ user });
 });

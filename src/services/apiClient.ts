@@ -44,13 +44,30 @@ export interface MessageDTO {
 class ApiClient {
   private eventSource: EventSource | null = null;
 
-  async login(username: string, name?: string, avatar?: string, bio?: string): Promise<UserDTO> {
+  async login(username: string, password?: string): Promise<UserDTO> {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, name, avatar, bio }),
+      body: JSON.stringify({ username, password }),
     });
-    if (!res.ok) throw new Error('Failed to log in');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'نام کاربری یا رمز عبور اشتباه است.');
+    }
+    const data = await res.json();
+    return data.user;
+  }
+
+  async register(username: string, password: string, name: string, avatar: string, bio?: string): Promise<UserDTO> {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, name, avatar, bio }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'ثبت‌نام ناموفق بود.');
+    }
     const data = await res.json();
     return data.user;
   }
